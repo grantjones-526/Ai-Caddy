@@ -1,0 +1,94 @@
+# =========================================
+# Python / Django
+# =========================================
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyo
+*.pyd
+*.pdb
+*.so
+
+# Django stuff:
+*.log
+*.pot
+*.pyc
+db.sqlite3
+db.sqlite3-journal
+
+# Django media/static (if generated dynamically)
+media/
+staticfiles/
+static/
+
+# Environment & config
+.env
+.env.*
+*.env
+*.venv
+venv/
+ENV/
+env/
+.env.local
+.env.production
+
+# =========================================
+# Frontend (React/Vue/Angular)
+# =========================================
+node_modules/
+dist/
+build/
+.cache/
+.next/
+out/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Frontend environment
+*.local
+*.development
+*.production
+
+# =========================================
+# OS and IDE files
+# =========================================
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# Editors
+.vscode/
+.idea/
+*.swp
+*.swo
+*.iml
+
+# =========================================
+# Miscellaneous
+# =========================================
+coverage/
+*.cover
+*.py,cover
+htmlcov/
+.tox/
+.mypy_cache/
+.pytest_cache/
+__snapshots__/
+
+# =========================================
+# Docker / CI artifacts
+# =========================================
+*.pid
+*.seed
+*.bak
+*.old
+*.orig
+*.rej
+docker-compose.override.yml

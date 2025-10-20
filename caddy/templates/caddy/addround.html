@@ -1,0 +1,41 @@
+{% extends 'caddy/base.html' %}
+
+{% block content %}
+<h2>Add a New Round</h2>
+<form method="post">
+    {% csrf_token %}
+    <div class="card">
+        <div class="form-group">
+            <label for="course_name">Course Name</label>
+            <input type="text" id="course_name" name="course_name" required>
+        </div>
+
+        <hr>
+        <h4>Record Your Shots</h4>
+        <div id="shots-container">
+            <!-- Initial Shot Input Row -->
+            <div class="shot-input-row" style="display: flex; gap: 1rem; align-items: center; margin-bottom:1rem;">
+                <select name="club" required>
+                    <option value="">--Select Club--</option>
+                    {% for club in clubs %}<option value="{{ club.id }}">{{ club.name }}</option>{% endfor %}
+                </select>
+                <input type="number" name="distance" placeholder="Distance (yds)" required>
+                <select name="shot_shape"><option>Straight</option><option>Fade</option><option>Draw</option><option>Slice</option><option>Hook</option></select>
+                <select name="lie"><option>Fairway</option><option>Rough</option><option>Sand</option><option>Tee Box</option></select>
+            </div>
+        </div>
+        <button type="button" id="add-shot-btn" class="btn" style="background-color: #555;">Add Another Shot</button>
+    </div>
+    <button type="submit" class="btn">Save Round</button>
+</form>
+
+<script>
+document.getElementById('add-shot-btn').addEventListener('click', function() {
+    const container = document.getElementById('shots-container');
+    const firstRow = container.querySelector('.shot-input-row');
+    const newRow = firstRow.cloneNode(true);
+    newRow.querySelectorAll('input, select').forEach(input => input.value = '');
+    container.appendChild(newRow);
+});
+</script>
+{% endblock %}

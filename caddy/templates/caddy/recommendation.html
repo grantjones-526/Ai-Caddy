@@ -1,0 +1,60 @@
+{% extends 'caddy/base.html' %}
+
+{% block content %}
+<h2>Get a Club Recommendation</h2>
+<div class="card">
+    <form method="get">
+        <div style="display: flex; gap: 1rem; align-items: flex-end;">
+            <div class="form-group" style="flex-grow: 1;">
+                <label for="distance">Distance to Target (yards)</label>
+                <input type="number" id="distance" name="distance" value="{{ distance_input|default:'' }}" required>
+            </div>
+            <div class="form-group" style="flex-grow: 1;">
+                <label for="lie">Current Lie</label>
+                <select id="lie" name="lie">
+                    <option {% if lie_input == 'Fairway' %}selected{% endif %}>Fairway</option>
+                    <option {% if lie_input == 'Rough' %}selected{% endif %}>Rough</option>
+                    <option {% if lie_input == 'Sand' %}selected{% endif %}>Sand</option>
+                    <option {% if lie_input == 'Tee Box' %}selected{% endif %}>Tee Box</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <button type="submit" class="btn">Get Suggestion</button>
+            </div>
+        </div>
+    </form>
+</div>
+
+{% if recommendations is not None %}
+    <h3>Recommendations for {{ distance_input }} yards</h3>
+    <div class="card">
+        {% if recommendations %}
+        <table>
+            <thead>
+                <tr>
+                    <th>Club</th>
+                    <th>Average Distance</th>
+                    <th>Confidence</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for rec in recommendations %}
+                <tr>
+                    <td><strong>{{ rec.club_name }}</strong></td>
+                    <td>{{ rec.avg_dist }} yds</td>
+                    <td>{{ rec.confidence }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+            <p>No suitable clubs found based on your history. Make sure you have at least 3 shots recorded for your clubs.</p>
+        {% endif %}
+    </div>
+{% endif %}
+
+{% if error %}
+    <p style="color: red;">{{ error }}</p>
+{% endif %}
+
+{% endblock %}
