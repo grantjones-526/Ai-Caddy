@@ -16,5 +16,6 @@ urlpatterns = [
     path('', views.dashboard_view, name='dashboard'), 
     path('round/add/', views.add_round_view, name='add_round'),
     path('round/<int:round_id>/', views.round_detail_view, name='round_detail'),
+    path('load_test_data/', views.load_test_data_view, name='load_test_data'),
     path('recommendations/', views.recommendation_view, name='recommendations'),
 ]

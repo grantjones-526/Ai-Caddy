@@ -1,0 +1,39 @@
+{% extends 'dashboard/base.html' %}
+
+{% block content %}
+<h2>Round Details</h2>
+
+<div class="card">
+    <h3>{{ round.course_name }}</h3>
+    <p>Played on: {{ round.date|date:"F j, Y" }}</p>
+    <a href="{% url 'dashboard' %}" style="margin-top: 1rem; display: inline-block;">&larr; Back to Dashboard</a>
+</div>
+
+<div class="card">
+    <h3>Shots for this Round</h3>
+    <table>
+        <thead>
+            <tr>
+                <th>Club</th>
+                <th>Distance</th>
+                <th>Shot Shape</th>
+                <th>Lie</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for shot in shots %}
+            <tr>
+                <td>{{ shot.club.name }}</td>
+                <td>{{ shot.distance }} yds</td>
+                <td>{{ shot.shot_shape }}</td>
+                <td>{{ shot.lie }}</td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="4">No shots were recorded for this round.</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

@@ -81,6 +81,7 @@ htmlcov/
 .mypy_cache/
 .pytest_cache/
 __snapshots__/
+gitpassword.txt
 
 # =========================================
 # Docker / CI artifacts

@@ -1,0 +1,58 @@
+{% extends 'dashboard/base.html' %}
+
+{% block content %}
+<h2>My Bag - Club Performance</h2>
+<div class="card">
+    <table>
+        <thead>
+            <tr>
+                <th>Club Name</th>
+                <th>Avg. Distance (yds)</th>
+                <th>Consistency (Std. Dev)</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for club in clubs %}
+            <tr>
+                <td>{{ club.name }}</td>
+                <!-- Make sure your model.py has these methods defined -->
+                <td>{{ club.get_average_distance }}</td>
+                <td>{{ club.get_distance_std_dev }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<h2>Recent Rounds</h2>
+<div class="card">
+    
+    <!-- 
+      NEW SECTION ADDED HERE 
+      - I've added some simple inline styles to make them look like buttons.
+      - You can remove the 'style' attribute if you have your own CSS classes.
+    -->
+    <div class="round-actions" style="margin-bottom: 1.5rem; display: flex; flex-wrap: wrap; gap: 10px;">
+        <a href="{% url 'add_round' %}" 
+           class="button-primary" 
+           style="text-decoration: none; padding: 10px 15px; background-color: #3498db; color: white; border-radius: 5px; font-weight: bold;">
+            Add New Round
+        </a>
+        <a href="{% url 'load_test_data' %}" 
+           class="button-secondary"
+           style="text-decoration: none; padding: 10px 15px; background-color: #7f8c8d; color: white; border-radius: 5px;">
+            Load Test Data
+        </a>
+    </div>
+    <!-- End of new section -->
+
+    <ul>
+        {% for round in rounds %}
+            <!-- Added the |date filter for cleaner formatting -->
+            <li><a href="{% url 'round_detail' round.id %}">{{ round.course_name }} - {{ round.date|date:"m/d/Y" }}</a></li>
+        {% empty %}
+            <li>You haven't recorded any rounds yet.</li>
+        {% endfor %}
+    </ul>
+</div>
+{% endblock %}

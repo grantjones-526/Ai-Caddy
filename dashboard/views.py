@@ -7,7 +7,10 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.forms import UserCreationForm, AuthenticationForm
 from django.contrib.auth import login, logout
+from django.conf import settings
 from .models import Club, GolfRound, Shot
+import os
+import csv
 import statistics
 
 # --- Authentication Views ---
@@ -47,7 +50,7 @@ def dashboard_view(request):
     """Displays user's clubs and their average performance."""
     clubs = Club.objects.filter(user=request.user)
     rounds = GolfRound.objects.filter(user=request.user).order_by('-date')
-    return render(request, 'caddy/dashboard.html', {'clubs': clubs, 'rounds': rounds})
+    return render(request, 'dashboard/dashboard.html', {'clubs': clubs, 'rounds': rounds})
 
 @login_required
 def add_round_view(request):
@@ -74,14 +77,14 @@ def add_round_view(request):
         return redirect('round_detail', round_id=new_round.id)
 
     clubs = Club.objects.filter(user=request.user)
-    return render(request, 'caddy/addround.html', {'clubs': clubs})
+    return render(request, 'dashboard/addround.html', {'clubs': clubs})
 
 @login_required
 def round_detail_view(request, round_id):
     """Displays the details and shots of a specific round."""
     golf_round = get_object_or_404(GolfRound, id=round_id, user=request.user)
     shots = Shot.objects.filter(golf_round=golf_round).order_by('id')
-    return render(request, 'caddy/round_detail.html', {'round': golf_round, 'shots': shots})
+    return render(request, 'dashboard/round_detail.html', {'round': golf_round, 'shots': shots})
 
 @login_required
 def recommendation_view(request):
@@ -97,7 +100,9 @@ def recommendation_view(request):
             clubs = Club.objects.filter(user=request.user)
             recommendations = []
             for club in clubs:
-                shots = Shot.objects.filter(club=club)
+                print(f"--- Checking Club: {club.name}, Lies: '{lie}' ---")
+                shots = Shot.objects.filter(club=club, lie=lie)
+                print(f"Found {shots.count()} shots matching")
                 if shots.count() > 2: # Need at least 3 shots for a meaningful recommendation
                     shot_distances = list(shots.values_list('distance', flat=True))
                     avg_dist = statistics.mean(shot_distances)
@@ -117,4 +122,72 @@ def recommendation_view(request):
         except (ValueError, TypeError):
             context['error'] = "Please enter a valid distance."
 
-    return render(request, 'caddy/recommendations.html', context)
+    return render(request, 'dashboard/recommendations.html', context)
+
+@login_required
+def load_test_data_view(request):
+    """
+    Reads a predefined CSV from the project folder and populates
+    shot data for the currently logged-in user.
+    """
+    
+    # 1. Define the path to the CSV file
+    file_path = os.path.join(settings.BASE_DIR, 'dummy_shots.csv')
+
+    # 2. Check if the file actually exists
+    if not os.path.exists(file_path):
+        # You could use Django's message framework to report an error
+        # messages.error(request, "Dummy data file not found.")
+        return redirect('dashboard') # Go back to the dashboard
+
+    # 3. Create a new round for this test data
+    new_round = GolfRound.objects.create(
+        user=request.user, 
+        course_name="Test Data Load"
+    )
+
+    # 4. Get the user's clubs into a dictionary for fast lookup
+    # This turns [Club(name='Driver'), Club(name='7 Iron')]
+    # into {'Driver': ClubObject, '7 Iron': ClubObject}
+    user_clubs = {club.name: club for club in Club.objects.filter(user=request.user)}
+    
+    shots_to_create = []
+
+    # 5. Read the CSV file
+    try:
+        with open(file_path, 'r', encoding='utf-8') as f:
+            reader = csv.DictReader(f)
+            golf_RD = new_round
+            for row in reader:
+                club_name = row.get('club_name')
+                
+                # Find the user's *actual* club object that matches the name
+                club = user_clubs.get(club_name)
+ 
+                # 6. Only create a shot if the user has that club and distance is valid
+                if club and row.get('distance'):
+                    try:
+                        shots_to_create.append(
+                            Shot(
+                                golf_round=golf_RD,
+                                club=club, # Use the club object we found
+                                distance=int(row.get('distance')),
+                                shot_shape=row.get('shot_shape', 'Straight'),
+                                lie=row.get('lie', 'Fairway')
+                            )
+                        )
+                    except (ValueError, TypeError):
+                        # Skip row if distance isn't a valid number
+                        pass
+
+        # 7. Use bulk_create to add all shots to the DB in one query
+        if shots_to_create:
+            Shot.objects.bulk_create(shots_to_create)
+        
+        # 8. Redirect to the new round's detail page
+        return redirect('round_detail', round_id=new_round.id)
+        
+    except Exception as e:
+        # Handle file read errors
+        # messages.error(request, f"Error reading CSV: {e}")
+        return redirect('dashboard')

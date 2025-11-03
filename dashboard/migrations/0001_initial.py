@@ -38,8 +38,8 @@ class Migration(migrations.Migration):
                 ('distance', models.PositiveIntegerField(help_text='Distance in yards')),
                 ('shot_shape', models.CharField(choices=[('Straight', 'Straight'), ('Fade', 'Fade'), ('Draw', 'Draw'), ('Slice', 'Slice'), ('Hook', 'Hook')], max_length=10)),
                 ('lie', models.CharField(choices=[('Fairway', 'Fairway'), ('Rough', 'Rough'), ('Sand', 'Sand'), ('Tee Box', 'Tee Box')], max_length=10)),
-                ('club', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='caddy.club')),
-                ('golf_round', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='caddy.golfround')),
+                ('club', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='dashboard.club')),
+                ('golf_round', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='dashboard.golfround')),
             ],
         ),
     ]
