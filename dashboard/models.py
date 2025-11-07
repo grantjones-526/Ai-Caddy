@@ -24,6 +24,24 @@ class Club(models.Model):
         stddev = self.shot_set.aggregate(stddev=StdDev('distance'))['stddev']
         return round(stddev, 1) if stddev else 0
 
+    def get_average_distance_fairway(self):
+        """Calculates average distance for Fairway and Tee Box shots (excludes Sand and Rough)."""
+        avg = self.shot_set.filter(lie__in=['Fairway', 'Tee Box']).aggregate(average=Avg('distance'))['average']
+        return int(round(avg)) if avg else None
+
+    def get_average_distance_rough(self):
+        """Calculates average distance for Rough shots only (excludes Sand, Fairway, Tee Box)."""
+        avg = self.shot_set.filter(lie='Rough').aggregate(average=Avg('distance'))['average']
+        return int(round(avg)) if avg else None
+
+    def get_fairway_shot_count(self):
+        """Returns count of shots from Fairway and Tee Box."""
+        return self.shot_set.filter(lie__in=['Fairway', 'Tee Box']).count()
+
+    def get_rough_shot_count(self):
+        """Returns count of shots from Rough."""
+        return self.shot_set.filter(lie='Rough').count()
+
 class GolfRound(models.Model):
     """Represents a single round of golf played by a user."""
     user = models.ForeignKey(User, on_delete=models.CASCADE)

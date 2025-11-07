@@ -7,21 +7,33 @@
         <thead>
             <tr>
                 <th>Club Name</th>
-                <th>Avg. Distance (yds)</th>
+                <th>Avg. Distance - Fairway/Tee Box</th>
+                <th>Avg. Distance - Rough</th>
                 <th>Consistency (Std. Dev)</th>
             </tr>
         </thead>
         <tbody>
             {% for club in clubs %}
             <tr>
-                <td>{{ club.name }}</td>
-                <!-- Make sure your model.py has these methods defined -->
-                <td>{{ club.get_average_distance }}</td>
+                <td><strong>{{ club.name }}</strong></td>
+                <td>
+                    {% if club.get_average_distance_fairway %}
+                        {{ club.get_average_distance_fairway }} yds
+                    {% endif %}
+                </td>
+                <td>
+                    {% if club.get_average_distance_rough %}
+                        {{ club.get_average_distance_rough }} yds
+                    {% endif %}
+                </td>
                 <td>{{ club.get_distance_std_dev }}</td>
             </tr>
             {% endfor %}
         </tbody>
     </table>
+    <p style="margin-top: 1rem; font-size: 0.9rem; color: var(--masters-green-dark);">
+        <em>Note: Sand shots are excluded from averages. Tee Box shots are grouped with Fairway.</em>
+    </p>
 </div>
 
 <h2>Recent Rounds</h2>
@@ -32,16 +44,15 @@
       - I've added some simple inline styles to make them look like buttons.
       - You can remove the 'style' attribute if you have your own CSS classes.
     -->
-    <div class="round-actions" style="margin-bottom: 1.5rem; display: flex; flex-wrap: wrap; gap: 10px;">
-        <a href="{% url 'add_round' %}" 
-           class="button-primary" 
-           style="text-decoration: none; padding: 10px 15px; background-color: #3498db; color: white; border-radius: 5px; font-weight: bold;">
+    <div class="round-actions">
+        <a href="{% url 'add_round' %}" class="button-primary">
             Add New Round
         </a>
-        <a href="{% url 'load_test_data' %}" 
-           class="button-secondary"
-           style="text-decoration: none; padding: 10px 15px; background-color: #7f8c8d; color: white; border-radius: 5px;">
+        <a href="{% url 'load_test_data' %}" class="button-secondary">
             Load Test Data
+        </a>
+        <a href="{% url 'clear_all_data' %}" class="button-danger" style="background: linear-gradient(135deg, #8B0000 0%, #dc3545 100%); border-color: #8B0000;">
+            Clear All Data
         </a>
     </div>
     <!-- End of new section -->

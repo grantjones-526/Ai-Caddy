@@ -1,0 +1,44 @@
+{% extends 'dashboard/base.html' %}
+
+{% block content %}
+<h2>Clear All Shot Data</h2>
+
+<div class="card">
+    <div style="padding: 2rem;">
+        <h3 style="color: #dc3545; margin-top: 0;">⚠️ Warning: This action cannot be undone!</h3>
+        
+        <p style="font-size: 1.1rem; margin: 1.5rem 0;">
+            You are about to delete <strong>all</strong> of your shot data and rounds.
+        </p>
+        
+        <div style="background-color: #fff3cd; border-left: 4px solid #ffc107; padding: 1rem; margin: 1.5rem 0; border-radius: 4px;">
+            <p style="margin: 0;"><strong>What will be deleted:</strong></p>
+            <ul style="margin: 0.5rem 0 0 0;">
+                <li><strong>{{ rounds_count }}</strong> round(s)</li>
+                <li><strong>{{ shots_count }}</strong> shot(s)</li>
+            </ul>
+        </div>
+        
+        <div style="background-color: #d4edda; border-left: 4px solid #28a745; padding: 1rem; margin: 1.5rem 0; border-radius: 4px;">
+            <p style="margin: 0;"><strong>What will be preserved:</strong></p>
+            <ul style="margin: 0.5rem 0 0 0;">
+                <li>Your clubs (they will remain in your bag)</li>
+                <li>Your account and settings</li>
+            </ul>
+        </div>
+        
+        <form method="post" style="margin-top: 2rem;">
+            {% csrf_token %}
+            <div style="display: flex; gap: 1rem; flex-wrap: wrap;">
+                <button type="submit" class="btn" style="background: linear-gradient(135deg, #8B0000 0%, #dc3545 100%); border-color: #8B0000;">
+                    Yes, Clear All Data
+                </button>
+                <a href="{% url 'dashboard' %}" class="btn" style="background: linear-gradient(135deg, var(--wood-brown) 0%, var(--leather-brown) 100%);">
+                    Cancel
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+

@@ -4,18 +4,26 @@
 <h2>Get a Club Recommendation</h2>
 <div class="card">
     <form method="get">
-        <div style="display: flex; gap: 1rem; align-items: flex-end;">
-            <div class="form-group" style="flex-grow: 1;">
+        <div class="form-row">
+            <div class="form-group">
                 <label for="distance">Distance to Target (yards)</label>
                 <input type="number" id="distance" name="distance" value="{{ distance_input|default:'' }}" required>
             </div>
-            <div class="form-group" style="flex-grow: 1;">
+            <div class="form-group">
                 <label for="lie">Current Lie</label>
                 <select id="lie" name="lie">
                     <option {% if lie_input == 'Fairway' %}selected{% endif %}>Fairway</option>
                     <option {% if lie_input == 'Rough' %}selected{% endif %}>Rough</option>
                     <option {% if lie_input == 'Sand' %}selected{% endif %}>Sand</option>
                     <option {% if lie_input == 'Tee Box' %}selected{% endif %}>Tee Box</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="bend">Hole Bend</label>
+                <select id="bend" name="bend">
+                    <option value="Straight" {% if bend_input == 'Straight' or not bend_input %}selected{% endif %}>Straight</option>
+                    <option value="Dogleg Right" {% if bend_input == 'Dogleg Right' %}selected{% endif %}>Dogleg Right</option>
+                    <option value="Dogleg Left" {% if bend_input == 'Dogleg Left' %}selected{% endif %}>Dogleg Left</option>
                 </select>
             </div>
             <div class="form-group">
@@ -26,35 +34,234 @@
 </div>
 
 {% if recommendations is not None %}
-    <h3>Recommendations for {{ distance_input }} yards</h3>
+    <h3>KNN Recommendations for {{ distance_input }} yards</h3>
+    {% if total_shots_analyzed %}
+        <p style="color: var(--masters-green-dark); font-size: 0.9rem; margin-bottom: 1rem;">
+            Analyzed {{ total_shots_analyzed }} historical shots using KNN (k={{ k_value }})
+            {% if lie_input %} | Lie: {{ lie_input }}{% endif %}
+            {% if bend_input %} | Bend: {{ bend_input }}{% endif %}
+            {% if shot_shape_input %} | Shot Shape: {{ shot_shape_input }}{% endif %}
+        </p>
+    {% endif %}
     <div class="card">
         {% if recommendations %}
         <table>
             <thead>
                 <tr>
+                    <th>Rank</th>
                     <th>Club</th>
-                    <th>Average Distance</th>
+                    <th>Avg. Distance ({{ lie_input }})</th>
                     <th>Confidence</th>
+                    <th>Match Score</th>
                 </tr>
             </thead>
             <tbody>
                 {% for rec in recommendations %}
                 <tr>
+                    <td><strong>#{{ forloop.counter }}</strong></td>
                     <td><strong>{{ rec.club_name }}</strong></td>
-                    <td>{{ rec.avg_dist }} yds</td>
-                    <td>{{ rec.confidence }}</td>
+                    <td>
+                        {% if rec.avg_dist %}
+                            {{ rec.avg_dist }} yds
+                        {% endif %}
+                    </td>
+                    <td>
+                        <span class="confidence-badge confidence-{{ rec.confidence|lower }}">
+                            {{ rec.confidence }}
+                        </span>
+                    </td>
+                    <td>{{ rec.probability }}%<br><small style="color: #666;">({{ rec.agreement }}% agree)</small></td>
                 </tr>
                 {% endfor %}
             </tbody>
         </table>
+        <p style="margin-top: 1rem; font-size: 0.9rem; color: var(--masters-green-dark);">
+            <em>Recommendations based on K-Nearest Neighbors algorithm using distance, lie, bend, and shot shape features.</em>
+        </p>
+        <div style="margin-top: 1.5rem; text-align: center;">
+            <button type="button" id="show-visualization-btn" class="btn" style="background: linear-gradient(135deg, var(--wood-brown) 0%, var(--leather-brown) 100%);">
+                📊 See Visualization
+            </button>
+        </div>
         {% else %}
             <p>No suitable clubs found based on your history. Make sure you have at least 3 shots recorded for your clubs.</p>
         {% endif %}
+    </div>
+    
+    <!-- Visualization Modal -->
+    <div id="visualization-modal" class="visualization-modal" style="display: none;">
+        <div class="visualization-content">
+            <span class="visualization-close">&times;</span>
+            <h2>KNN Feature Space Visualization</h2>
+            <div id="visualization-container" style="width: 100%; height: 600px;"></div>
+            <p style="margin-top: 1rem; font-size: 0.85rem; color: var(--masters-green-dark);">
+                <em>This 2D visualization uses PCA to reduce the 4D feature space (distance, lie, bend, shot_shape) to 2D. 
+                Points are colored by club. The red star shows your query point, and highlighted points are the nearest neighbors.</em>
+            </p>
+        </div>
     </div>
 {% endif %}
 
 {% if error %}
     <p style="color: red;">{{ error }}</p>
 {% endif %}
+
+<!-- Plotly.js for visualization -->
+<script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const showBtn = document.getElementById('show-visualization-btn');
+    const modal = document.getElementById('visualization-modal');
+    const closeBtn = document.querySelector('.visualization-close');
+    const container = document.getElementById('visualization-container');
+    
+    if (!showBtn) return; // No recommendations yet
+    
+    // Get current form parameters
+    function getQueryParams() {
+        const urlParams = new URLSearchParams(window.location.search);
+        return {
+            distance: urlParams.get('distance') || '{{ distance_input|default:"" }}',
+            lie: urlParams.get('lie') || '{{ lie_input|default:"Fairway" }}',
+            bend: urlParams.get('bend') || '{{ bend_input|default:"Straight" }}',
+            shot_shape: urlParams.get('shot_shape') || '{{ shot_shape_input|default:"Straight" }}'
+        };
+    }
+    
+    // Show modal
+    showBtn.addEventListener('click', function() {
+        modal.style.display = 'block';
+        loadVisualization();
+    });
+    
+    // Close modal
+    closeBtn.addEventListener('click', function() {
+        modal.style.display = 'none';
+    });
+    
+    // Close modal when clicking outside
+    window.addEventListener('click', function(event) {
+        if (event.target === modal) {
+            modal.style.display = 'none';
+        }
+    });
+    
+    // Load and display visualization
+    function loadVisualization() {
+        const params = getQueryParams();
+        const url = `{% url 'recommendation_visualization' %}?distance=${params.distance}&lie=${encodeURIComponent(params.lie)}&bend=${encodeURIComponent(params.bend)}&shot_shape=${encodeURIComponent(params.shot_shape)}`;
+        
+        container.innerHTML = '<div style="text-align: center; padding: 2rem;">Loading visualization...</div>';
+        
+        fetch(url)
+            .then(response => response.json())
+            .then(data => {
+                if (data.error) {
+                    container.innerHTML = `<div style="text-align: center; padding: 2rem; color: red;">Error: ${data.error}</div>`;
+                    return;
+                }
+                
+                // Group shots by club
+                const clubGroups = {};
+                data.shots.forEach(shot => {
+                    if (!clubGroups[shot.club]) {
+                        clubGroups[shot.club] = [];
+                    }
+                    clubGroups[shot.club].push(shot);
+                });
+                
+                // Create traces for each club
+                const traces = [];
+                Object.keys(clubGroups).forEach(club => {
+                    const clubShots = clubGroups[club];
+                    const neighbors = clubShots.filter(s => s.is_neighbor);
+                    const others = clubShots.filter(s => !s.is_neighbor);
+                    
+                    // Regular shots (not neighbors)
+                    if (others.length > 0) {
+                        traces.push({
+                            x: others.map(s => s.x),
+                            y: others.map(s => s.y),
+                            mode: 'markers',
+                            type: 'scatter',
+                            name: club,
+                            marker: {
+                                color: data.club_colors[club] || '#004029',
+                                size: 8,
+                                opacity: 0.6,
+                                line: { width: 1, color: '#000' }
+                            },
+                            text: others.map(s => `${club}<br>${s.distance}yds<br>${s.lie}<br>${s.shot_shape}`),
+                            hoverinfo: 'text'
+                        });
+                    }
+                    
+                    // Neighbor shots (highlighted)
+                    if (neighbors.length > 0) {
+                        traces.push({
+                            x: neighbors.map(s => s.x),
+                            y: neighbors.map(s => s.y),
+                            mode: 'markers',
+                            type: 'scatter',
+                            name: `${club} (Neighbor)`,
+                            marker: {
+                                color: data.club_colors[club] || '#004029',
+                                size: 12,
+                                opacity: 1,
+                                line: { width: 3, color: '#D4AF37' },
+                                symbol: 'diamond'
+                            },
+                            text: neighbors.map(s => `${club}<br>${s.distance}yds<br>${s.lie}<br>${s.shot_shape}<br><strong>Nearest Neighbor</strong>`),
+                            hoverinfo: 'text'
+                        });
+                    }
+                });
+                
+                // Query point (red star)
+                traces.push({
+                    x: [data.query_point.x],
+                    y: [data.query_point.y],
+                    mode: 'markers',
+                    type: 'scatter',
+                    name: 'Your Query',
+                    marker: {
+                        color: '#dc3545',
+                        size: 20,
+                        symbol: 'star',
+                        line: { width: 2, color: '#fff' }
+                    },
+                    text: [`Your Query<br>${data.query_point.distance}yds<br>${data.query_point.lie}<br>${data.query_point.bend}<br>Predicted: ${data.predicted_club}`],
+                    hoverinfo: 'text'
+                });
+                
+                const layout = {
+                    title: {
+                        text: `KNN Feature Space (PCA: ${(data.pca_explained_variance[0] * 100).toFixed(1)}% + ${(data.pca_explained_variance[1] * 100).toFixed(1)}% variance explained)`,
+                        font: { size: 16, color: '#004029' }
+                    },
+                    xaxis: { title: 'Principal Component 1' },
+                    yaxis: { title: 'Principal Component 2' },
+                    hovermode: 'closest',
+                    plot_bgcolor: '#f5f5dc',
+                    paper_bgcolor: '#ffffff',
+                    font: { family: 'Lato, sans-serif', color: '#2c2416' },
+                    legend: {
+                        x: 1.02,
+                        y: 1,
+                        bgcolor: 'rgba(255, 255, 255, 0.8)',
+                        bordercolor: '#8B4513',
+                        borderwidth: 1
+                    }
+                };
+                
+                Plotly.newPlot(container, traces, layout, {responsive: true});
+            })
+            .catch(error => {
+                container.innerHTML = `<div style="text-align: center; padding: 2rem; color: red;">Error loading visualization: ${error.message}</div>`;
+            });
+    }
+});
+</script>
 
 {% endblock %}

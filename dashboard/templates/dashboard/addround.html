@@ -14,7 +14,7 @@
         <h4>Record Your Shots</h4>
         <div id="shots-container">
             <!-- Initial Shot Input Row -->
-            <div class="shot-input-row" style="display: flex; gap: 1rem; align-items: center; margin-bottom:1rem;">
+            <div class="shot-input-row">
                 <select name="club" required>
                     <option value="">--Select Club--</option>
                     {% for club in clubs %}<option value="{{ club.id }}">{{ club.name }}</option>{% endfor %}
@@ -24,7 +24,7 @@
                 <select name="lie"><option>Fairway</option><option>Rough</option><option>Sand</option><option>Tee Box</option></select>
             </div>
         </div>
-        <button type="button" id="add-shot-btn" class="btn" style="background-color: #555;">Add Another Shot</button>
+        <button type="button" id="add-shot-btn" class="btn">Add Another Shot</button>
     </div>
     <button type="submit" class="btn">Save Round</button>
 </form>
