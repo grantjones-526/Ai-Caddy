@@ -117,6 +117,12 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
 
 STATIC_URL = 'static/'
+STATIC_ROOT = BASE_DIR / 'staticfiles'  # For production: python manage.py collectstatic
+
+# Additional locations for static files
+STATICFILES_DIRS = [
+    BASE_DIR / 'static',  # Global static files (if needed)
+]
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
