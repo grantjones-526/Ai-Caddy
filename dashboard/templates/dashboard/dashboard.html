@@ -39,14 +39,12 @@
 <h2>Recent Rounds</h2>
 <div class="card">
     
-    <!-- 
-      NEW SECTION ADDED HERE 
-      - I've added some simple inline styles to make them look like buttons.
-      - You can remove the 'style' attribute if you have your own CSS classes.
-    -->
     <div class="round-actions">
         <a href="{% url 'add_round' %}" class="button-primary">
             Add New Round
+        </a>
+        <a href="{% url 'import_launch_monitor' %}" class="button-secondary">
+            📥 Import Launch Monitor
         </a>
         <a href="{% url 'load_test_data' %}" class="button-secondary">
             Load Test Data

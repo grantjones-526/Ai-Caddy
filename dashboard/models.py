@@ -66,3 +66,38 @@ class Shot(models.Model):
     def __str__(self):
         return f"{self.club.name} - {self.distance} yards"
 
+class LaunchMonitorImport(models.Model):
+    """Tracks launch monitor data imports for audit and debugging."""
+    DEVICE_CHOICES = [
+        ('Garmin R10', 'Garmin R10'),
+        ('SkyTrak+', 'SkyTrak+'),
+        ('Flightscope Mevo+', 'Flightscope Mevo+'),
+        ('Arccos Caddie', 'Arccos Caddie'),
+        ('Generic Launch Monitor', 'Generic Launch Monitor'),
+    ]
+    
+    STATUS_CHOICES = [
+        ('pending', 'Pending'),
+        ('parsing', 'Parsing'),
+        ('preview', 'Preview Ready'),
+        ('imported', 'Imported'),
+        ('failed', 'Failed'),
+        ('partial', 'Partially Imported'),
+    ]
+    
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    device_type = models.CharField(max_length=50, choices=DEVICE_CHOICES)
+    file_name = models.CharField(max_length=255)
+    file_size = models.PositiveIntegerField(help_text="File size in bytes")
+    raw_data = models.TextField(help_text="Original file content (JSON) for debugging")
+    parsed_data = models.JSONField(null=True, blank=True, help_text="Normalized parsed data")
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
+    error_log = models.TextField(blank=True, help_text="Parsing errors and warnings")
+    rounds_created = models.PositiveIntegerField(default=0)
+    shots_created = models.PositiveIntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+    imported_at = models.DateTimeField(null=True, blank=True)
+    
+    def __str__(self):
+        return f"{self.device_type} import - {self.file_name} ({self.status})"
+

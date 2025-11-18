@@ -20,7 +20,32 @@ SECRET_KEY = config('SECRET_KEY', default='django-insecure-x5)sjn!^rt86qrxgwkd_4
 
 DEBUG = config('DEBUG', default=True, cast=bool)
 
-ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='', cast=Csv())
+# Allow local network access for development
+# In production, set ALLOWED_HOSTS via environment variable
+if DEBUG:
+    # Allow localhost and common local network patterns
+    ALLOWED_HOSTS = [
+        'localhost',
+        '127.0.0.1',
+        '0.0.0.0',
+        # Add your local IP address here (found via: hostname -I)
+        # Example: '192.168.1.100' or '172.16.64.56'
+    ]
+    # Try to auto-detect local IP
+    import socket
+    try:
+        # Connect to a remote address to determine local IP
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.connect(('8.8.8.8', 80))
+        local_ip = s.getsockname()[0]
+        s.close()
+        if local_ip and local_ip not in ALLOWED_HOSTS:
+            ALLOWED_HOSTS.append(local_ip)
+    except:
+        pass
+else:
+    # Production: use environment variable
+    ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='', cast=Csv())
 
 
 # Application definition

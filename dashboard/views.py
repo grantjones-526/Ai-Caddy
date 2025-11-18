@@ -9,15 +9,18 @@ from django.contrib.auth.forms import UserCreationForm, AuthenticationForm
 from django.contrib.auth import login, logout
 from django.contrib import messages
 from django.conf import settings
-from .models import Club, GolfRound, Shot
+from django.utils import timezone
+from django.http import JsonResponse, HttpResponse
+from .models import Club, GolfRound, Shot, LaunchMonitorImport
+from .parsers import LaunchMonitorParser
 import os
 import csv
 import statistics
+import json
 import numpy as np
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.preprocessing import LabelEncoder
 from sklearn.decomposition import PCA
-from django.http import JsonResponse
 
 # --- Authentication Views ---
 def signup_view(request):
@@ -230,39 +233,44 @@ def recommendation_view(request):
             
             # Normalize scores to probabilities (0-1 range)
             # But also factor in the average distance to neighbors for overall confidence
-            avg_neighbor_distance = np.mean(neighbor_dists)
+            avg_neighbor_distance = np.mean(neighbor_dists) if len(neighbor_dists) > 0 else 1
             max_possible_distance = np.max(neighbor_dists) if len(neighbor_dists) > 0 else 1
             
             # Calculate confidence factor (0-1) based on how close neighbors are
             # Closer neighbors = higher confidence
-            distance_confidence = 1.0 / (1.0 + avg_neighbor_distance / max_possible_distance)
+            if max_possible_distance > 0:
+                distance_confidence = 1.0 / (1.0 + avg_neighbor_distance / max_possible_distance)
+            else:
+                distance_confidence = 1.0
             
-            # Normalize club scores to percentages, but cap at 95% to show uncertainty
+            # Normalize club scores to probabilities
             club_probabilities = {}
-            for club, score in club_scores.items():
-                raw_prob = score / total_weight if total_weight > 0 else 0
-                # Apply confidence factor - if neighbors are far, reduce confidence
-                adjusted_prob = raw_prob * (0.7 + 0.3 * distance_confidence)  # Scale between 0.7-1.0
-                # Cap at 95% to always show some uncertainty
-                club_probabilities[club] = min(0.95, adjusted_prob)
+            if club_scores and total_weight > 0:
+                for club, score in club_scores.items():
+                    # Raw probability from distance-weighted scores
+                    raw_prob = score / total_weight
+                    # Apply confidence factor - if neighbors are far, reduce confidence
+                    # Scale between 0.6-1.0 based on distance confidence
+                    adjusted_prob = raw_prob * (0.6 + 0.4 * distance_confidence)
+                    # Ensure valid probability range
+                    club_probabilities[club] = max(0.0, min(1.0, float(adjusted_prob)))
             
-            # Get probabilities for all clubs (for display purposes)
-            # Include all clubs that appeared in training, not just neighbors
+            # Get probabilities for all clubs from KNN
             all_club_probs = knn.predict_proba(X_query)[0]
             all_club_probabilities = {
-                club_encoder.inverse_transform([i])[0]: prob 
+                club_encoder.inverse_transform([i])[0]: float(prob) 
                 for i, prob in enumerate(all_club_probs)
             }
             
-            # Merge - use distance-weighted for neighbors, scale down others
+            # Merge - prioritize distance-weighted scores for neighbors, use KNN prob for others
             final_probabilities = {}
             for club in all_club_probabilities:
                 if club in club_probabilities:
-                    # Use distance-weighted probability
+                    # Use distance-weighted probability (from neighbors)
                     final_probabilities[club] = club_probabilities[club]
                 else:
-                    # Scale down non-neighbor probabilities
-                    final_probabilities[club] = all_club_probabilities[club] * 0.3
+                    # Use KNN probability but scale it down since it's not in neighbors
+                    final_probabilities[club] = all_club_probabilities[club] * 0.5
             
             # Get nearest neighbors details for recommendations
             recommendations = []
@@ -274,9 +282,59 @@ def recommendation_view(request):
             # Get club objects for easier access to model methods
             club_objects = {club.name: club for club in Club.objects.filter(user=request.user)}
             
-            # Add top recommendations (sorted by probability)
+            # Calculate a combined score: probability * agreement * distance_weight
+            # This helps prioritize clubs that are both likely AND have strong neighbor agreement
+            club_scores_combined = {}
             for club_name, prob in sorted_clubs:
-                if club_name not in seen_clubs and prob > 0.01:  # At least 1% probability
+                # Ensure probability is valid
+                if np.isnan(prob) or prob < 0:
+                    prob = 0.0
+                
+                agreement = sum(1 for c in neighbor_clubs if c == club_name) / len(neighbor_clubs) if neighbor_clubs else 0
+                
+                # Combined score: probability weighted by agreement and distance confidence
+                # Agreement boost: clubs with more neighbor agreement get higher scores
+                agreement_boost = 0.3 + 0.7 * agreement  # Scale from 0.3 to 1.0
+                combined_score = prob * agreement_boost * distance_confidence
+                
+                # Ensure combined score is valid
+                if np.isnan(combined_score) or combined_score < 0:
+                    combined_score = 0.0
+                
+                club_scores_combined[club_name] = {
+                    'probability': float(prob),
+                    'agreement': float(agreement),
+                    'combined_score': float(combined_score)
+                }
+            
+            # Re-sort by combined score
+            sorted_by_combined = sorted(club_scores_combined.items(), key=lambda x: x[1]['combined_score'], reverse=True)
+            
+            # Filter out clubs with zero or invalid scores
+            valid_recommendations = [(name, data) for name, data in sorted_by_combined if data['combined_score'] > 0 and not np.isnan(data['combined_score'])]
+            
+            if not valid_recommendations:
+                # Fallback: use just probability if combined scores are all zero
+                valid_recommendations = [(name, {'probability': data['probability'], 'agreement': data['agreement'], 'combined_score': data['probability']}) 
+                                        for name, data in sorted_by_combined if data['probability'] > 0]
+            
+            # Get the top club's score to use as a threshold
+            top_score = valid_recommendations[0][1]['combined_score'] if valid_recommendations else 0
+            
+            # Add top recommendations (only 1-2, or 3 if scores are very close)
+            max_recommendations = 2
+            min_score_threshold = top_score * 0.4  # Must be at least 40% of top score
+            
+            for club_name, score_data in valid_recommendations:
+                if club_name not in seen_clubs:
+                    prob = score_data['probability']
+                    agreement = score_data['agreement']
+                    combined_score = score_data['combined_score']
+                    
+                    # Skip if score is too low
+                    if combined_score < min_score_threshold:
+                        continue
+                    
                     # Get the club object
                     club_obj = club_objects.get(club_name)
                     
@@ -296,30 +354,41 @@ def recommendation_view(request):
                     else:
                         avg_distance = None
                     
-                    # Determine confidence based on probability and neighbor distance
-                    # Factor in both probability and how close neighbors are
-                    if prob > 0.5 and avg_neighbor_distance < np.percentile(neighbor_dists, 50):
+                    # Determine confidence based on combined score and neighbor distance
+                    if combined_score > top_score * 0.75 and avg_neighbor_distance < np.percentile(neighbor_dists, 50) if len(neighbor_dists) > 0 else False:
                         confidence = 'High'
-                    elif prob > 0.25:
+                    elif combined_score > top_score * 0.5:
                         confidence = 'Medium'
                     else:
                         confidence = 'Low'
                     
-                    # Calculate agreement percentage (how many neighbors agree)
-                    agreement = sum(1 for c in neighbor_clubs if c == club_name) / len(neighbor_clubs) if neighbor_clubs else 0
+                    # Ensure probability is valid for display
+                    display_prob = prob * 100
+                    if np.isnan(display_prob) or display_prob < 0:
+                        display_prob = 0.0
                     
                     recommendations.append({
                         'club_name': club_name,
                         'avg_dist': avg_distance,
                         'confidence': confidence,
-                        'probability': round(prob * 100, 1),
+                        'probability': round(display_prob, 1),
                         'agreement': round(agreement * 100, 1)
                     })
                     seen_clubs.add(club_name)
                     
-                    # Limit to top 10 recommendations
-                    if len(recommendations) >= 10:
-                        break
+                    # Limit to max recommendations (1-2, or 3 if very close scores)
+                    if len(recommendations) >= max_recommendations:
+                        # Check if 3rd place is very close to 2nd place (within 15%)
+                        if len(valid_recommendations) > len(recommendations):
+                            next_club = valid_recommendations[len(recommendations)]
+                            next_score = next_club[1]['combined_score']
+                            current_score = score_data['combined_score']
+                            if current_score > 0 and next_score > current_score * 0.85:  # Within 15%
+                                max_recommendations = 3
+                            else:
+                                break
+                        else:
+                            break
             
             context['recommendations'] = recommendations
             context['k_value'] = k
@@ -619,3 +688,346 @@ def load_test_data_view(request):
         if new_round.id:
             new_round.delete()
         return redirect('dashboard')
+
+@login_required
+def import_launch_monitor_view(request):
+    """Handle file upload and parsing of launch monitor data."""
+    if request.method == 'POST':
+        if 'file' not in request.FILES:
+            messages.error(request, "No file uploaded")
+            return redirect('import_launch_monitor')
+        
+        uploaded_file = request.FILES['file']
+        device_type = request.POST.get('device_type', '')
+        
+        # Validate file size (10MB max)
+        if uploaded_file.size > 10 * 1024 * 1024:
+            messages.error(request, "File size exceeds 10MB limit")
+            return redirect('import_launch_monitor')
+        
+        # Validate file extension
+        file_name = uploaded_file.name
+        file_ext = os.path.splitext(file_name)[1].lower()
+        if file_ext not in ['.csv', '.json']:
+            messages.error(request, "Invalid file type. Please upload a CSV or JSON file")
+            return redirect('import_launch_monitor')
+        
+        # Read file content
+        try:
+            if file_ext == '.json':
+                file_content = uploaded_file.read().decode('utf-8')
+            else:
+                file_content = uploaded_file.read().decode('utf-8')
+        except UnicodeDecodeError:
+            messages.error(request, "File encoding error. Please ensure file is UTF-8 encoded")
+            return redirect('import_launch_monitor')
+        
+        # Create import record
+        import_record = LaunchMonitorImport.objects.create(
+            user=request.user,
+            device_type=device_type or 'Garmin R10',
+            file_name=file_name,
+            file_size=uploaded_file.size,
+            raw_data=json.dumps({'content': file_content[:10000]}),  # Store first 10k chars for debugging
+            status='parsing'
+        )
+        
+        # Parse the file
+        try:
+            parser = LaunchMonitorParser()
+            parsed_data = parser.parse(file_content, file_ext, device_type if device_type else None)
+            
+            # Update import record
+            import_record.parsed_data = parsed_data
+            import_record.status = 'preview'
+            import_record.error_log = '\n'.join(parsed_data.get('errors', []))
+            if parsed_data.get('warnings'):
+                import_record.error_log += '\nWarnings:\n' + '\n'.join(parsed_data.get('warnings', []))
+            import_record.save()
+            
+            # Check for duplicate rounds
+            duplicate_rounds = []
+            for round_data in parsed_data.get('rounds', []):
+                existing = GolfRound.objects.filter(
+                    user=request.user,
+                    date=round_data['date'],
+                    course_name=round_data['courseName']
+                ).first()
+                if existing:
+                    duplicate_rounds.append({
+                        'date': round_data['date'],
+                        'course': round_data['courseName'],
+                        'existing_id': existing.id
+                    })
+            
+            return render(request, 'dashboard/import_preview.html', {
+                'import_record': import_record,
+                'parsed_data': parsed_data,
+                'duplicate_rounds': duplicate_rounds,
+                'total_rounds': len(parsed_data.get('rounds', [])),
+                'total_shots': sum(
+                    len(hole.get('shots', []))
+                    for round_data in parsed_data.get('rounds', [])
+                    for hole in round_data.get('holes', [])
+                )
+            })
+            
+        except Exception as e:
+            import_record.status = 'failed'
+            import_record.error_log = f"Parsing error: {str(e)}"
+            import_record.save()
+            messages.error(request, f"Error parsing file: {str(e)}")
+            return redirect('import_launch_monitor')
+    
+    # GET request - show upload form
+    return render(request, 'dashboard/import_launch_monitor.html', {
+        'device_choices': LaunchMonitorImport.DEVICE_CHOICES
+    })
+
+def map_club_name(csv_club_name, user_clubs_dict):
+    """
+    Maps CSV club abbreviations to database club names.
+    Handles common abbreviations like '3W' -> '3 Wood', 'LW' -> '60 Degree', etc.
+    """
+    csv_club = csv_club_name.strip().upper()
+    
+    # Direct match first
+    if csv_club_name in user_clubs_dict:
+        return user_clubs_dict[csv_club_name]
+    
+    # Case-insensitive direct match
+    for club_name, club_obj in user_clubs_dict.items():
+        if club_name.upper() == csv_club:
+            return club_obj
+    
+    # Mapping dictionary for common abbreviations
+    club_mappings = {
+        # Woods
+        'DRIVER': ['Driver'],
+        '3W': ['3 Wood', '3W'],
+        '5W': ['5 Wood', '5W'],
+        '7W': ['7 Wood', '7W'],
+        
+        # Hybrids
+        '2H': ['2 Hybrid', '2H', '2 Iron'],
+        '3H': ['3 Hybrid', '3H', '3 Iron'],
+        '4H': ['4 Hybrid', '4H', '4 Iron'],
+        '5H': ['5 Hybrid', '5H', '5 Iron'],
+        '6H': ['6 Hybrid', '6H', '6 Iron'],
+        '7H': ['7 Hybrid', '7H', '7 Iron'],
+        '8H': ['8 Hybrid', '8H', '8 Iron'],
+        '9H': ['9 Hybrid', '9H', '9 Iron'],
+        
+        # Irons
+        '2I': ['2 Iron', '2I'],
+        '3I': ['3 Iron', '3I'],
+        '4I': ['4 Iron', '4I'],
+        '5I': ['5 Iron', '5I'],
+        '6I': ['6 Iron', '6I'],
+        '7I': ['7 Iron', '7I'],
+        '8I': ['8 Iron', '8I'],
+        '9I': ['9 Iron', '9I'],
+        
+        # Wedges
+        'PW': ['Pitching Wedge', 'PW'],
+        'GW': ['52 Degree', 'Gap Wedge', 'GW', '52°'],
+        'SW': ['56 Degree', 'Sand Wedge', 'SW', '56°'],
+        'LW': ['60 Degree', 'Lob Wedge', 'LW', '60°'],
+        
+        # Alternative wedge names
+        'AW': ['52 Degree', 'Approach Wedge', 'AW', 'Gap Wedge'],
+        'UW': ['52 Degree', 'Utility Wedge', 'UW'],
+    }
+    
+    # Try mapping
+    if csv_club in club_mappings:
+        for possible_name in club_mappings[csv_club]:
+            # Exact match
+            if possible_name in user_clubs_dict:
+                return user_clubs_dict[possible_name]
+            # Case-insensitive match
+            for club_name, club_obj in user_clubs_dict.items():
+                if club_name.upper() == possible_name.upper():
+                    return club_obj
+            # Partial match (e.g., "52 Degree" contains "52")
+            for club_name, club_obj in user_clubs_dict.items():
+                if possible_name.upper() in club_name.upper() or club_name.upper() in possible_name.upper():
+                    return club_obj
+    
+    # Try partial matching for numbers (e.g., "3W" might match "3 Wood")
+    if len(csv_club) >= 2:
+        number = csv_club[0] if csv_club[0].isdigit() else None
+        letter = csv_club[-1] if csv_club[-1].isalpha() else None
+        
+        if number and letter:
+            # Try to match "3W" with "3 Wood", "3H" with "3 Hybrid" or "3 Iron"
+            for club_name, club_obj in user_clubs_dict.items():
+                club_upper = club_name.upper()
+                if club_upper.startswith(number):
+                    if letter == 'W' and ('WOOD' in club_upper or 'W' in club_upper):
+                        return club_obj
+                    elif letter == 'H' and ('HYBRID' in club_upper or 'IRON' in club_upper):
+                        return club_obj
+                    elif letter == 'I' and 'IRON' in club_upper:
+                        return club_obj
+    
+    # Try fuzzy matching - check if CSV name is contained in any club name or vice versa
+    for club_name, club_obj in user_clubs_dict.items():
+        club_upper = club_name.upper()
+        # Remove common words for matching
+        club_clean = club_upper.replace(' DEGREE', '').replace('°', '').replace(' WOOD', '').replace(' IRON', '').replace(' HYBRID', '').replace(' WEDGE', '')
+        csv_clean = csv_club.replace('W', '').replace('H', '').replace('I', '').replace('P', '').replace('G', '').replace('S', '').replace('L', '')
+        
+        if csv_clean and csv_clean in club_clean:
+            return club_obj
+        if club_clean and club_clean in csv_club:
+            return club_obj
+    
+    return None
+
+@login_required
+def confirm_import_view(request, import_id):
+    """Confirm and import the parsed launch monitor data."""
+    import_record = get_object_or_404(LaunchMonitorImport, id=import_id, user=request.user)
+    
+    if import_record.status != 'preview':
+        messages.error(request, "This import is not ready for confirmation")
+        return redirect('dashboard')
+    
+    if request.method == 'POST':
+        merge_duplicates = request.POST.get('merge_duplicates') == 'on'
+        parsed_data = import_record.parsed_data
+        
+        if not parsed_data:
+            messages.error(request, "No parsed data found")
+            return redirect('dashboard')
+        
+        rounds_created = 0
+        shots_created = 0
+        errors = []
+        
+        # Get user's clubs for matching
+        user_clubs = {club.name: club for club in Club.objects.filter(user=request.user)}
+        
+        try:
+            for round_data in parsed_data.get('rounds', []):
+                # Check for duplicate
+                existing_round = GolfRound.objects.filter(
+                    user=request.user,
+                    date=round_data['date'],
+                    course_name=round_data['courseName']
+                ).first()
+                
+                if existing_round and not merge_duplicates:
+                    errors.append(f"Skipped duplicate round: {round_data['courseName']} on {round_data['date']}")
+                    continue
+                
+                # Use existing round or create new
+                if existing_round and merge_duplicates:
+                    golf_round = existing_round
+                else:
+                    golf_round = GolfRound.objects.create(
+                        user=request.user,
+                        date=round_data['date'],
+                        course_name=round_data['courseName']
+                    )
+                    rounds_created += 1
+                
+                # Import shots
+                for hole_data in round_data.get('holes', []):
+                    for shot_data in hole_data.get('shots', []):
+                        club_name = shot_data.get('club', '').strip()
+                        
+                        # Use the mapping function to find matching club
+                        club = map_club_name(club_name, user_clubs)
+                        
+                        if not club:
+                            errors.append(f"Club '{club_name}' not found in your bag. Shot skipped.")
+                            continue
+                        
+                        # Determine lie and shot_shape
+                        # Use the mapped club name for lie determination
+                        mapped_club_name = club.name
+                        lie = 'Tee Box' if 'Tee' in mapped_club_name or 'Driver' in mapped_club_name else 'Fairway'
+                        
+                        # Use inferred shot shape from parser if available, otherwise default to Straight
+                        shot_shape = shot_data.get('shotShape', 'Straight')
+                        
+                        # Validate shot_shape is one of the allowed choices
+                        valid_shapes = ['Straight', 'Fade', 'Draw', 'Slice', 'Hook']
+                        if shot_shape not in valid_shapes:
+                            shot_shape = 'Straight'
+                        
+                        # Create shot
+                        try:
+                            Shot.objects.create(
+                                golf_round=golf_round,
+                                club=club,
+                                distance=shot_data.get('distance', 0),
+                                shot_shape=shot_shape,
+                                lie=lie
+                            )
+                            shots_created += 1
+                        except Exception as e:
+                            errors.append(f"Error creating shot: {str(e)}")
+            
+            # Update import record
+            import_record.status = 'imported' if not errors else 'partial'
+            import_record.rounds_created = rounds_created
+            import_record.shots_created = shots_created
+            import_record.imported_at = timezone.now()
+            if errors:
+                import_record.error_log += '\n\nImport Errors:\n' + '\n'.join(errors)
+            import_record.save()
+            
+            # Success message
+            if errors:
+                messages.warning(
+                    request,
+                    f"Import completed with {len(errors)} errors. "
+                    f"Created {rounds_created} rounds and {shots_created} shots."
+                )
+            else:
+                messages.success(
+                    request,
+                    f"Successfully imported {rounds_created} rounds and {shots_created} shots!"
+                )
+            
+            return redirect('dashboard')
+            
+        except Exception as e:
+            import_record.status = 'failed'
+            import_record.error_log += f'\n\nImport error: {str(e)}'
+            import_record.save()
+            messages.error(request, f"Error during import: {str(e)}")
+            return redirect('dashboard')
+    
+    # GET request - show confirmation page
+    parsed_data = import_record.parsed_data
+    duplicate_rounds = []
+    for round_data in parsed_data.get('rounds', []) if parsed_data else []:
+        existing = GolfRound.objects.filter(
+            user=request.user,
+            date=round_data['date'],
+            course_name=round_data['courseName']
+        ).first()
+        if existing:
+            duplicate_rounds.append({
+                'date': round_data['date'],
+                'course': round_data['courseName'],
+                'existing_id': existing.id
+            })
+    
+    total_shots = sum(
+        len(hole.get('shots', []))
+        for round_data in parsed_data.get('rounds', []) if parsed_data
+        for hole in round_data.get('holes', [])
+    )
+    
+    return render(request, 'dashboard/import_confirm.html', {
+        'import_record': import_record,
+        'parsed_data': parsed_data,
+        'duplicate_rounds': duplicate_rounds,
+        'total_rounds': len(parsed_data.get('rounds', [])) if parsed_data else 0,
+        'total_shots': total_shots
+    })
