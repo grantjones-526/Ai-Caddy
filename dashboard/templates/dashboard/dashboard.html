@@ -15,18 +15,22 @@
         <tbody>
             {% for club in clubs %}
             <tr>
-                <td><strong>{{ club.name }}</strong></td>
-                <td>
+                <td data-label="Club Name"><strong>{{ club.name }}</strong></td>
+                <td data-label="Avg. Distance - Fairway/Tee Box">
                     {% if club.avg_fairway %}
                         {{ club.avg_fairway|floatformat:0 }} yds
+                    {% else %}
+                        -
                     {% endif %}
                 </td>
-                <td>
+                <td data-label="Avg. Distance - Rough">
                     {% if club.avg_rough %}
                         {{ club.avg_rough|floatformat:0 }} yds
+                    {% else %}
+                        -
                     {% endif %}
                 </td>
-                <td>
+                <td data-label="Consistency (Std. Dev)">
                     {% if club.std_dev %}
                         {{ club.std_dev|floatformat:1 }}
                     {% else %}
