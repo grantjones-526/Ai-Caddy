@@ -11,6 +11,7 @@ from django.contrib import messages
 from django.conf import settings
 from django.utils import timezone
 from django.http import JsonResponse, HttpResponse
+from django.db.models import Avg, StdDev, Count, Q
 from .models import Club, GolfRound, Shot, LaunchMonitorImport
 from .parsers import LaunchMonitorParser
 import os
@@ -57,7 +58,11 @@ def logout_view(request):
 @login_required
 def dashboard_view(request):
     """Displays user's clubs and their average performance."""
-    clubs = Club.objects.filter(user=request.user)
+    clubs = Club.objects.filter(user=request.user).annotate(
+        avg_fairway=Avg('shot__distance', filter=Q(shot__lie__in=['Fairway', 'Tee Box'])),
+        avg_rough=Avg('shot__distance', filter=Q(shot__lie='Rough')),
+        std_dev=StdDev('shot__distance')
+    ).prefetch_related('shot_set')
     rounds = GolfRound.objects.filter(user=request.user).order_by('-date')
     return render(request, 'dashboard/dashboard.html', {'clubs': clubs, 'rounds': rounds})
 
@@ -69,10 +74,10 @@ def add_round_view(request):
         new_round = GolfRound.objects.create(user=request.user, course_name=course_name)
 
         # Process multiple shots submitted with the form
-        clubs_ids = request.POST.getlist('club')
-        distances = request.POST.getlist('distance')
-        shot_shapes = request.POST.getlist('shot_shape')
-        lies = request.POST.getlist('lie')
+        clubs_ids = request.POST.getlist('club[]')
+        distances = request.POST.getlist('distance[]')
+        shot_shapes = request.POST.getlist('shot_shape[]')
+        lies = request.POST.getlist('lie[]')
 
         for i in range(len(clubs_ids)):
             if distances[i]: # Only save if distance is entered
@@ -318,77 +323,156 @@ def recommendation_view(request):
                 valid_recommendations = [(name, {'probability': data['probability'], 'agreement': data['agreement'], 'combined_score': data['probability']}) 
                                         for name, data in sorted_by_combined if data['probability'] > 0]
             
-            # Get the top club's score to use as a threshold
-            top_score = valid_recommendations[0][1]['combined_score'] if valid_recommendations else 0
-            
-            # Add top recommendations (only 1-2, or 3 if scores are very close)
-            max_recommendations = 2
-            min_score_threshold = top_score * 0.4  # Must be at least 40% of top score
-            
+            # Get club objects and calculate average distances for the specific lie
+            # Re-rank recommendations by average distance for the input lie (furthest first)
+            club_distance_rankings = []
             for club_name, score_data in valid_recommendations:
-                if club_name not in seen_clubs:
-                    prob = score_data['probability']
-                    agreement = score_data['agreement']
-                    combined_score = score_data['combined_score']
-                    
-                    # Skip if score is too low
-                    if combined_score < min_score_threshold:
+                # Never recommend Driver if lie is not Tee Box
+                if club_name.lower() == 'driver' and lie != 'Tee Box':
+                    continue
+                
+                club_obj = club_objects.get(club_name)
+                if not club_obj:
+                    continue
+                
+                # Calculate average distance based on the selected lie
+                if lie in ['Fairway', 'Tee Box']:
+                    avg_distance = club_obj.get_average_distance_fairway()
+                elif lie == 'Rough':
+                    avg_distance = club_obj.get_average_distance_rough()
+                else:
+                    # Fallback: use general average if lie is something else
+                    avg_distance = club_obj.get_average_distance()
+                
+                # Only include clubs that have data for this lie
+                if avg_distance is not None and avg_distance > 0:
+                    club_distance_rankings.append({
+                        'club_name': club_name,
+                        'avg_distance': avg_distance,
+                        'score_data': score_data
+                    })
+            
+            # Sort by average distance (furthest first)
+            club_distance_rankings.sort(key=lambda x: x['avg_distance'], reverse=True)
+            
+            # Check if KNN has no good neighbors (neighbors are too far or no valid recommendations)
+            # Use a threshold: if average neighbor distance is very large relative to the query distance,
+            # or if we have no valid recommendations, use fallback
+            use_fallback = False
+            if not club_distance_rankings:
+                use_fallback = True
+            elif len(neighbor_dists) > 0:
+                # If average neighbor distance is more than 2x the query distance, neighbors are too far
+                if avg_neighbor_distance > distance_to_hole * 2:
+                    use_fallback = True
+            
+            # Fallback: recommend furthest club in bag if KNN has no good neighbors
+            if use_fallback:
+                # Get all clubs for the user
+                all_user_clubs = Club.objects.filter(user=request.user)
+                fallback_clubs = []
+                
+                for club in all_user_clubs:
+                    # Never recommend Driver if lie is not Tee Box
+                    if club.name.lower() == 'driver' and lie != 'Tee Box':
                         continue
                     
-                    # Get the club object
-                    club_obj = club_objects.get(club_name)
-                    
                     # Calculate average distance based on the selected lie
-                    # If lie is Fairway or Tee Box, use fairway average; if Rough, use rough average
                     if lie in ['Fairway', 'Tee Box']:
-                        avg_distance = club_obj.get_average_distance_fairway() if club_obj else None
+                        avg_distance = club.get_average_distance_fairway()
                     elif lie == 'Rough':
-                        avg_distance = club_obj.get_average_distance_rough() if club_obj else None
+                        avg_distance = club.get_average_distance_rough()
                     else:
                         # Fallback: use general average if lie is something else
-                        avg_distance = club_obj.get_average_distance() if club_obj else None
+                        avg_distance = club.get_average_distance()
                     
-                    # Only show as integer if we have a value
-                    if avg_distance is not None:
-                        avg_distance = int(round(avg_distance))
-                    else:
-                        avg_distance = None
-                    
-                    # Determine confidence based on combined score and neighbor distance
-                    if combined_score > top_score * 0.75 and avg_neighbor_distance < np.percentile(neighbor_dists, 50) if len(neighbor_dists) > 0 else False:
-                        confidence = 'High'
-                    elif combined_score > top_score * 0.5:
-                        confidence = 'Medium'
-                    else:
-                        confidence = 'Low'
-                    
-                    # Ensure probability is valid for display
-                    display_prob = prob * 100
-                    if np.isnan(display_prob) or display_prob < 0:
-                        display_prob = 0.0
+                    # Only include clubs that have data for this lie
+                    if avg_distance is not None and avg_distance > 0:
+                        fallback_clubs.append({
+                            'club_name': club.name,
+                            'avg_distance': avg_distance,
+                            'club_obj': club
+                        })
+                
+                # Sort by average distance (furthest first)
+                fallback_clubs.sort(key=lambda x: x['avg_distance'], reverse=True)
+                
+                # Add the furthest club(s) as recommendations
+                for club_data in fallback_clubs[:2]:  # Top 2 furthest clubs
+                    club_name = club_data['club_name']
+                    avg_distance = int(round(club_data['avg_distance']))
                     
                     recommendations.append({
                         'club_name': club_name,
                         'avg_dist': avg_distance,
-                        'confidence': confidence,
-                        'probability': round(display_prob, 1),
-                        'agreement': round(agreement * 100, 1)
+                        'confidence': 'Low',  # Low confidence since KNN had no good neighbors
+                        'probability': 0.0,  # No probability data from KNN
+                        'agreement': 0.0  # No agreement data from KNN
                     })
-                    seen_clubs.add(club_name)
+            else:
+                # Normal KNN recommendations path
+                # Get the top club's score to use as a threshold
+                top_score = valid_recommendations[0][1]['combined_score'] if valid_recommendations else 0
+                
+                # Add top recommendations (only 1-2, or 3 if scores are very close)
+                max_recommendations = 2
+                min_score_threshold = top_score * 0.4  # Must be at least 40% of top score
+                
+                for club_data in club_distance_rankings:
+                    club_name = club_data['club_name']
+                    score_data = club_data['score_data']
+                    avg_distance = club_data['avg_distance']
                     
-                    # Limit to max recommendations (1-2, or 3 if very close scores)
-                    if len(recommendations) >= max_recommendations:
-                        # Check if 3rd place is very close to 2nd place (within 15%)
-                        if len(valid_recommendations) > len(recommendations):
-                            next_club = valid_recommendations[len(recommendations)]
-                            next_score = next_club[1]['combined_score']
-                            current_score = score_data['combined_score']
-                            if current_score > 0 and next_score > current_score * 0.85:  # Within 15%
-                                max_recommendations = 3
+                    if club_name not in seen_clubs:
+                        prob = score_data['probability']
+                        agreement = score_data['agreement']
+                        combined_score = score_data['combined_score']
+                        
+                        # Skip if score is too low
+                        if combined_score < min_score_threshold:
+                            continue
+                        
+                        # Get the club object
+                        club_obj = club_objects.get(club_name)
+                        
+                        # avg_distance is already calculated above, just format it
+                        avg_distance = int(round(avg_distance))
+                        
+                        # Determine confidence based on combined score and neighbor distance
+                        if combined_score > top_score * 0.75 and avg_neighbor_distance < np.percentile(neighbor_dists, 50) if len(neighbor_dists) > 0 else False:
+                            confidence = 'High'
+                        elif combined_score > top_score * 0.5:
+                            confidence = 'Medium'
+                        else:
+                            confidence = 'Low'
+                        
+                        # Ensure probability is valid for display
+                        display_prob = prob * 100
+                        if np.isnan(display_prob) or display_prob < 0:
+                            display_prob = 0.0
+                        
+                        recommendations.append({
+                            'club_name': club_name,
+                            'avg_dist': avg_distance,
+                            'confidence': confidence,
+                            'probability': round(display_prob, 1),
+                            'agreement': round(agreement * 100, 1)
+                        })
+                        seen_clubs.add(club_name)
+                        
+                        # Limit to max recommendations (1-2, or 3 if very close scores)
+                        if len(recommendations) >= max_recommendations:
+                            # Check if 3rd place is very close to 2nd place (within 15%)
+                            if len(valid_recommendations) > len(recommendations):
+                                next_club = valid_recommendations[len(recommendations)]
+                                next_score = next_club[1]['combined_score']
+                                current_score = score_data['combined_score']
+                                if current_score > 0 and next_score > current_score * 0.85:  # Within 15%
+                                    max_recommendations = 3
+                                else:
+                                    break
                             else:
                                 break
-                        else:
-                            break
             
             context['recommendations'] = recommendations
             context['k_value'] = k

@@ -17,16 +17,22 @@
             <tr>
                 <td><strong>{{ club.name }}</strong></td>
                 <td>
-                    {% if club.get_average_distance_fairway %}
-                        {{ club.get_average_distance_fairway }} yds
+                    {% if club.avg_fairway %}
+                        {{ club.avg_fairway|floatformat:0 }} yds
                     {% endif %}
                 </td>
                 <td>
-                    {% if club.get_average_distance_rough %}
-                        {{ club.get_average_distance_rough }} yds
+                    {% if club.avg_rough %}
+                        {{ club.avg_rough|floatformat:0 }} yds
                     {% endif %}
                 </td>
-                <td>{{ club.get_distance_std_dev }}</td>
+                <td>
+                    {% if club.std_dev %}
+                        {{ club.std_dev|floatformat:1 }}
+                    {% else %}
+                        -
+                    {% endif %}
+                </td>
             </tr>
             {% endfor %}
         </tbody>
@@ -44,7 +50,7 @@
             Add New Round
         </a>
         <a href="{% url 'import_launch_monitor' %}" class="button-secondary">
-            📥 Import Launch Monitor
+            Import Launch Monitor
         </a>
         <a href="{% url 'load_test_data' %}" class="button-secondary">
             Load Test Data

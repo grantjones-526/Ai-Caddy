@@ -47,7 +47,7 @@
                 
                 <div class="form-group">
                     <label for="gps-club">Club</label>
-                    <select id="gps-club" class="form-control" required>
+                    <select id="gps-club" class="form-control">
                         <option value="">Select Club</option>
                         {% for club in clubs %}
                         <option value="{{ club.id }}">{{ club.name }}</option>
@@ -57,7 +57,7 @@
                 
                 <div class="form-group">
                     <label for="gps-lie">Lie</label>
-                    <select id="gps-lie" class="form-control" required>
+                    <select id="gps-lie" class="form-control">
                         <option value="Fairway">Fairway</option>
                         <option value="Rough">Rough</option>
                         <option value="Sand">Sand</option>
@@ -67,7 +67,7 @@
                 
                 <div class="form-group">
                     <label for="gps-shot-shape">Shot Shape</label>
-                    <select id="gps-shot-shape" class="form-control" required>
+                    <select id="gps-shot-shape" class="form-control">
                         <option value="Straight">Straight</option>
                         <option value="Fade">Fade</option>
                         <option value="Draw">Draw</option>
@@ -108,6 +108,46 @@
 </form>
 
 <script>
+// Form submission handler - remove empty rows and handle GPS fields before submitting
+document.querySelector('form').addEventListener('submit', function(e) {
+    // Handle GPS form fields - always remove required since these fields aren't submitted
+    // (they're only used to populate manual entry fields via JavaScript)
+    const gpsClub = document.getElementById('gps-club');
+    const gpsLie = document.getElementById('gps-lie');
+    const gpsShotShape = document.getElementById('gps-shot-shape');
+    
+    if (gpsClub) gpsClub.removeAttribute('required');
+    if (gpsLie) gpsLie.removeAttribute('required');
+    if (gpsShotShape) gpsShotShape.removeAttribute('required');
+    
+    // Handle manual shot entry rows
+    const container = document.getElementById('shots-container');
+    const rows = Array.from(container.querySelectorAll('.shot-input-row'));
+    
+    // Process rows in reverse order to avoid index issues when removing
+    for (let i = rows.length - 1; i >= 0; i--) {
+        const row = rows[i];
+        const club = row.querySelector('select[name="club[]"]');
+        const distance = row.querySelector('input[name="distance[]"]');
+        
+        // If both club and distance are empty
+        if (club && distance && !club.value && !distance.value) {
+            // Remove required attributes to prevent validation errors
+            row.querySelectorAll('input, select').forEach(function(field) {
+                field.removeAttribute('required');
+            });
+            
+            // Remove the row if it's not the only row, or if it's the only row and empty
+            // (allow saving rounds with no shots)
+            if (rows.length > 1) {
+                row.remove();
+            }
+        }
+    }
+    
+    // The form will now submit normally with validation only on the fields we care about
+});
+
 // Existing add shot functionality
 document.getElementById('add-shot-btn').addEventListener('click', function() {
     const container = document.getElementById('shots-container');
