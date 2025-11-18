@@ -19,7 +19,7 @@ db.sqlite3-journal
 # Django media/static (if generated dynamically)
 media/
 staticfiles/
-static/
+# Note: static/ is NOT ignored - we need to commit static files (CSS, images) to git
 
 # Environment & config
 .env
