@@ -148,13 +148,11 @@ STATICFILES_DIRS = [
 ]
 
 # WhiteNoise configuration for serving static files in production
-# Don't use manifest storage - use simple storage that works even if collectstatic fails
 STATICFILES_STORAGE = 'django.contrib.staticfiles.storage.StaticFilesStorage'
 
-# WhiteNoise settings - allow it to find files even if not collected
-WHITENOISE_USE_FINDERS = True  # Allow WhiteNoise to find static files from STATICFILES_DIRS
-WHITENOISE_ROOT = BASE_DIR / 'staticfiles'  # Where collected files go
-WHITENOISE_AUTOREFRESH = True  # Auto-refresh in development
+# WhiteNoise settings - allows serving files from STATICFILES_DIRS if collectstatic didn't run
+WHITENOISE_USE_FINDERS = True
+WHITENOISE_AUTOREFRESH = True
 
 # Default primary key field type
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
