@@ -1,0 +1,168 @@
+{% extends 'dashboard/base.html' %}
+
+{% block content %}
+<h2>Import Launch Monitor Data</h2>
+
+<div class="card">
+    <p style="margin-bottom: 1.5rem; color: var(--masters-green-dark);">
+        Upload shot data from your launch monitor device. Supported formats: CSV and JSON exports from 
+        Garmin R10, SkyTrak+, Flightscope Mevo+, and Arccos Caddie.
+    </p>
+    
+    <form method="post" enctype="multipart/form-data" id="import-form">
+        {% csrf_token %}
+        
+        <div class="form-group">
+            <label for="device_type">Device Type (Optional - will auto-detect if not specified)</label>
+            <select id="device_type" name="device_type" class="form-control">
+                <option value="">Auto-detect</option>
+                {% for value, label in device_choices %}
+                <option value="{{ value }}">{{ label }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        
+        <div class="form-group">
+            <label for="file">Select File (CSV or JSON, max 10MB)</label>
+            <div class="file-upload-area" id="file-upload-area">
+                <input type="file" id="file" name="file" accept=".csv,.json" required style="display: none;">
+                <div class="file-upload-content">
+                    <p id="file-upload-text">📁 Drag and drop your file here or click to browse</p>
+                    <p id="file-name" style="display: none; margin-top: 0.5rem; font-weight: bold; color: var(--masters-green);"></p>
+                    <p id="file-size" style="display: none; margin-top: 0.25rem; font-size: 0.9em; color: #666;"></p>
+                </div>
+            </div>
+        </div>
+        
+        <button type="submit" class="btn" id="submit-btn" disabled>Upload and Parse</button>
+    </form>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const fileInput = document.getElementById('file');
+    const fileUploadArea = document.getElementById('file-upload-area');
+    const fileName = document.getElementById('file-name');
+    const fileSize = document.getElementById('file-size');
+    const fileUploadText = document.getElementById('file-upload-text');
+    const submitBtn = document.getElementById('submit-btn');
+    const form = document.getElementById('import-form');
+    
+    // Click to browse
+    fileUploadArea.addEventListener('click', function() {
+        fileInput.click();
+    });
+    
+    // Drag and drop
+    fileUploadArea.addEventListener('dragover', function(e) {
+        e.preventDefault();
+        fileUploadArea.style.borderColor = 'var(--masters-green)';
+        fileUploadArea.style.backgroundColor = 'var(--cream)';
+    });
+    
+    fileUploadArea.addEventListener('dragleave', function(e) {
+        e.preventDefault();
+        fileUploadArea.style.borderColor = 'var(--leather-brown)';
+        fileUploadArea.style.backgroundColor = 'white';
+    });
+    
+    fileUploadArea.addEventListener('drop', function(e) {
+        e.preventDefault();
+        fileUploadArea.style.borderColor = 'var(--leather-brown)';
+        fileUploadArea.style.backgroundColor = 'white';
+        
+        const files = e.dataTransfer.files;
+        if (files.length > 0) {
+            fileInput.files = files;
+            handleFileSelect(files[0]);
+        }
+    });
+    
+    // File input change
+    fileInput.addEventListener('change', function() {
+        if (fileInput.files.length > 0) {
+            handleFileSelect(fileInput.files[0]);
+        }
+    });
+    
+    function handleFileSelect(file) {
+        // Validate file type
+        const fileExt = file.name.split('.').pop().toLowerCase();
+        if (!['csv', 'json'].includes(fileExt)) {
+            alert('Invalid file type. Please upload a CSV or JSON file.');
+            fileInput.value = '';
+            resetFileDisplay();
+            return;
+        }
+        
+        // Validate file size (10MB)
+        const maxSize = 10 * 1024 * 1024; // 10MB
+        if (file.size > maxSize) {
+            alert('File size exceeds 10MB limit.');
+            fileInput.value = '';
+            resetFileDisplay();
+            return;
+        }
+        
+        // Display file info
+        fileName.textContent = file.name;
+        fileName.style.display = 'block';
+        
+        const sizeMB = (file.size / (1024 * 1024)).toFixed(2);
+        fileSize.textContent = `Size: ${sizeMB} MB`;
+        fileSize.style.display = 'block';
+        
+        fileUploadText.textContent = 'File selected ✓';
+        fileUploadText.style.color = 'var(--masters-green)';
+        
+        submitBtn.disabled = false;
+    }
+    
+    function resetFileDisplay() {
+        fileName.style.display = 'none';
+        fileSize.style.display = 'none';
+        fileUploadText.textContent = '📁 Drag and drop your file here or click to browse';
+        fileUploadText.style.color = '#666';
+        submitBtn.disabled = true;
+    }
+    
+    // Form submission
+    form.addEventListener('submit', function(e) {
+        if (!fileInput.files.length) {
+            e.preventDefault();
+            alert('Please select a file to upload.');
+            return;
+        }
+        
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Uploading and Parsing...';
+    });
+});
+</script>
+
+<style>
+.file-upload-area {
+    border: 3px dashed var(--leather-brown);
+    border-radius: 8px;
+    padding: 3rem 2rem;
+    text-align: center;
+    background: white;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.file-upload-area:hover {
+    border-color: var(--masters-green);
+    background: var(--cream);
+}
+
+.file-upload-content {
+    pointer-events: none;
+}
+
+#file-name {
+    word-break: break-all;
+}
+</style>
+{% endblock %}
+

@@ -20,4 +20,6 @@ urlpatterns = [
     path('clear_all_data/', views.clear_all_data_view, name='clear_all_data'),
     path('recommendations/', views.recommendation_view, name='recommendations'),
     path('recommendations/visualization/', views.recommendation_visualization_view, name='recommendation_visualization'),
+    path('import/', views.import_launch_monitor_view, name='import_launch_monitor'),
+    path('import/<int:import_id>/confirm/', views.confirm_import_view, name='confirm_import'),
 ]

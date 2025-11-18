@@ -11,17 +11,95 @@
         </div>
 
         <hr>
-        <h4>Record Your Shots</h4>
+        
+        <!-- GPS Shot Tracking Section -->
+        <div class="gps-tracking-section">
+            <h3>📍 GPS Shot Tracking</h3>
+            
+            <!-- Status Display -->
+            <div id="gps-status">
+                <p id="status-text">GPS not started</p>
+                <p id="location-info"></p>
+            </div>
+            
+            <!-- Control Buttons -->
+            <div class="gps-controls">
+                <button type="button" id="start-shot-btn" class="btn-gps btn-start" onclick="startShot()">
+                    📍 Start Shot
+                </button>
+                <button type="button" id="end-shot-btn" class="btn-gps btn-end" onclick="endShot()" disabled>
+                    🎯 End Shot
+                </button>
+                <button type="button" id="cancel-shot-btn" class="btn-gps btn-cancel" onclick="cancelShot()" disabled>
+                    ❌ Cancel
+                </button>
+            </div>
+            
+            <!-- Distance Display -->
+            <div id="distance-result" style="display: none;">
+                <h4>Shot Distance</h4>
+                <p id="distance-value"></p>
+            </div>
+            
+            <!-- Shot Details Form (appears after ending shot) -->
+            <div id="shot-details-form" style="display: none;">
+                <h4>Shot Details</h4>
+                
+                <div class="form-group">
+                    <label for="gps-club">Club</label>
+                    <select id="gps-club" class="form-control" required>
+                        <option value="">Select Club</option>
+                        {% for club in clubs %}
+                        <option value="{{ club.id }}">{{ club.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label for="gps-lie">Lie</label>
+                    <select id="gps-lie" class="form-control" required>
+                        <option value="Fairway">Fairway</option>
+                        <option value="Rough">Rough</option>
+                        <option value="Sand">Sand</option>
+                        <option value="Tee Box">Tee Box</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label for="gps-shot-shape">Shot Shape</label>
+                    <select id="gps-shot-shape" class="form-control" required>
+                        <option value="Straight">Straight</option>
+                        <option value="Fade">Fade</option>
+                        <option value="Draw">Draw</option>
+                        <option value="Slice">Slice</option>
+                        <option value="Hook">Hook</option>
+                    </select>
+                </div>
+                
+                <button type="button" class="btn-gps btn-save" onclick="saveGPSShot()">
+                    ✅ Add Shot to Round
+                </button>
+            </div>
+        </div>
+        
+        <!-- Divider -->
+        <div class="gps-divider">
+            <hr>
+            <p>OR</p>
+            <hr>
+        </div>
+        
+        <h4>✏️ Manual Shot Entry</h4>
         <div id="shots-container">
             <!-- Initial Shot Input Row -->
             <div class="shot-input-row">
-                <select name="club" required>
+                <select name="club[]" required>
                     <option value="">--Select Club--</option>
                     {% for club in clubs %}<option value="{{ club.id }}">{{ club.name }}</option>{% endfor %}
                 </select>
-                <input type="number" name="distance" placeholder="Distance (yds)" required>
-                <select name="shot_shape"><option>Straight</option><option>Fade</option><option>Draw</option><option>Slice</option><option>Hook</option></select>
-                <select name="lie"><option>Fairway</option><option>Rough</option><option>Sand</option><option>Tee Box</option></select>
+                <input type="number" name="distance[]" placeholder="Distance (yds)" required>
+                <select name="shot_shape[]"><option>Straight</option><option>Fade</option><option>Draw</option><option>Slice</option><option>Hook</option></select>
+                <select name="lie[]"><option>Fairway</option><option>Rough</option><option>Sand</option><option>Tee Box</option></select>
             </div>
         </div>
         <button type="button" id="add-shot-btn" class="btn">Add Another Shot</button>
@@ -30,6 +108,7 @@
 </form>
 
 <script>
+// Existing add shot functionality
 document.getElementById('add-shot-btn').addEventListener('click', function() {
     const container = document.getElementById('shots-container');
     const firstRow = container.querySelector('.shot-input-row');
@@ -37,5 +116,253 @@ document.getElementById('add-shot-btn').addEventListener('click', function() {
     newRow.querySelectorAll('input, select').forEach(input => input.value = '');
     container.appendChild(newRow);
 });
+
+// GPS Tracking functionality
+let gpsTracking = {
+    startLocation: null,
+    endLocation: null,
+    watchId: null,
+    distance: null
+};
+
+function startShot() {
+    if (!navigator.geolocation) {
+        alert('GPS is not supported by your browser');
+        return;
+    }
+    
+    // Show loading
+    updateStatus('Getting GPS location...', 'info');
+    document.getElementById('start-shot-btn').disabled = true;
+    
+    // Get current position with high accuracy
+    navigator.geolocation.getCurrentPosition(
+        function(position) {
+            gpsTracking.startLocation = {
+                lat: position.coords.latitude,
+                lng: position.coords.longitude,
+                accuracy: position.coords.accuracy
+            };
+            
+            // Start watching position
+            gpsTracking.watchId = navigator.geolocation.watchPosition(
+                updateCurrentPosition,
+                handleGPSError,
+                { enableHighAccuracy: true, maximumAge: 0 }
+            );
+            
+            updateStatus(
+                '✅ Shot started! Walk to your ball and click "End Shot"',
+                'success'
+            );
+            document.getElementById('location-info').textContent = 
+                `Start: ${gpsTracking.startLocation.lat.toFixed(6)}, ${gpsTracking.startLocation.lng.toFixed(6)} (±${Math.round(gpsTracking.startLocation.accuracy)}m)`;
+            
+            document.getElementById('end-shot-btn').disabled = false;
+            document.getElementById('cancel-shot-btn').disabled = false;
+        },
+        handleGPSError,
+        { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+    );
+}
+
+function updateCurrentPosition(position) {
+    // Update current position display (optional live tracking)
+    const currentLat = position.coords.latitude;
+    const currentLng = position.coords.longitude;
+    
+    if (gpsTracking.startLocation) {
+        const distanceMeters = calculateDistance(
+            gpsTracking.startLocation.lat,
+            gpsTracking.startLocation.lng,
+            currentLat,
+            currentLng
+        );
+        const distanceYards = Math.round(distanceMeters * 1.09361);
+        
+        document.getElementById('location-info').textContent = 
+            `Current distance: ${distanceYards} yards (live tracking)`;
+    }
+}
+
+function endShot() {
+    if (!gpsTracking.startLocation) {
+        alert('Please start a shot first');
+        return;
+    }
+    
+    updateStatus('Getting final position...', 'info');
+    document.getElementById('end-shot-btn').disabled = true;
+    
+    navigator.geolocation.getCurrentPosition(
+        function(position) {
+            gpsTracking.endLocation = {
+                lat: position.coords.latitude,
+                lng: position.coords.longitude,
+                accuracy: position.coords.accuracy
+            };
+            
+            // Stop watching position
+            if (gpsTracking.watchId) {
+                navigator.geolocation.clearWatch(gpsTracking.watchId);
+                gpsTracking.watchId = null;
+            }
+            
+            // Calculate distance
+            const distanceMeters = calculateDistance(
+                gpsTracking.startLocation.lat,
+                gpsTracking.startLocation.lng,
+                gpsTracking.endLocation.lat,
+                gpsTracking.endLocation.lng
+            );
+            
+            gpsTracking.distance = Math.round(distanceMeters * 1.09361); // Convert to yards
+            
+            // Display result
+            document.getElementById('distance-value').textContent = `${gpsTracking.distance} yards`;
+            document.getElementById('distance-result').style.display = 'block';
+            document.getElementById('shot-details-form').style.display = 'block';
+            
+            updateStatus(
+                `✅ Shot complete! Distance: ${gpsTracking.distance} yards`,
+                'success'
+            );
+            
+            document.getElementById('start-shot-btn').disabled = true;
+            document.getElementById('cancel-shot-btn').disabled = true;
+        },
+        handleGPSError,
+        { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+    );
+}
+
+function cancelShot() {
+    if (gpsTracking.watchId) {
+        navigator.geolocation.clearWatch(gpsTracking.watchId);
+    }
+    
+    gpsTracking = {
+        startLocation: null,
+        endLocation: null,
+        watchId: null,
+        distance: null
+    };
+    
+    document.getElementById('start-shot-btn').disabled = false;
+    document.getElementById('end-shot-btn').disabled = true;
+    document.getElementById('cancel-shot-btn').disabled = true;
+    document.getElementById('distance-result').style.display = 'none';
+    document.getElementById('shot-details-form').style.display = 'none';
+    
+    updateStatus('Shot cancelled', 'info');
+    document.getElementById('location-info').textContent = '';
+}
+
+function saveGPSShot() {
+    const club = document.getElementById('gps-club').value;
+    const lie = document.getElementById('gps-lie').value;
+    const shotShape = document.getElementById('gps-shot-shape').value;
+    
+    if (!club || !lie || !shotShape) {
+        alert('Please fill in all shot details');
+        return;
+    }
+    
+    if (!gpsTracking.distance) {
+        alert('No distance calculated');
+        return;
+    }
+    
+    // Add to manual entry section
+    addShotRow(club, gpsTracking.distance, lie, shotShape);
+    
+    // Reset GPS tracking
+    cancelShot();
+    
+    // Scroll to the new shot row
+    const container = document.getElementById('shots-container');
+    const lastRow = container.lastElementChild;
+    if (lastRow) {
+        lastRow.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+}
+
+function addShotRow(clubId, distance, lie, shotShape) {
+    // Get the shots container
+    const shotsContainer = document.getElementById('shots-container');
+    if (!shotsContainer) return;
+    
+    // Get the first row to clone
+    const firstRow = shotsContainer.querySelector('.shot-input-row');
+    if (!firstRow) return;
+    
+    // Create new row (clone existing row structure)
+    const newRow = firstRow.cloneNode(true);
+    
+    // Set values
+    newRow.querySelector('select[name="club[]"]').value = clubId;
+    newRow.querySelector('input[name="distance[]"]').value = distance;
+    newRow.querySelector('select[name="shot_shape[]"]').value = shotShape;
+    newRow.querySelector('select[name="lie[]"]').value = lie;
+    
+    // Append to container
+    shotsContainer.appendChild(newRow);
+}
+
+function calculateDistance(lat1, lon1, lat2, lon2) {
+    // Haversine formula for calculating distance between two GPS coordinates
+    const R = 6371e3; // Earth's radius in meters
+    const φ1 = lat1 * Math.PI / 180;
+    const φ2 = lat2 * Math.PI / 180;
+    const Δφ = (lat2 - lat1) * Math.PI / 180;
+    const Δλ = (lon2 - lon1) * Math.PI / 180;
+    
+    const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) +
+              Math.cos(φ1) * Math.cos(φ2) *
+              Math.sin(Δλ/2) * Math.sin(Δλ/2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    
+    return R * c; // Distance in meters
+}
+
+function updateStatus(message, type) {
+    const statusText = document.getElementById('status-text');
+    statusText.textContent = message;
+    
+    // Color coding
+    if (type === 'success') {
+        statusText.style.color = 'var(--masters-green)';
+    } else if (type === 'error') {
+        statusText.style.color = '#c41e3a';
+    } else {
+        statusText.style.color = '#666';
+    }
+}
+
+function handleGPSError(error) {
+    let message = 'GPS error: ';
+    switch(error.code) {
+        case error.PERMISSION_DENIED:
+            message += 'Please enable location permissions';
+            break;
+        case error.POSITION_UNAVAILABLE:
+            message += 'Location information unavailable';
+            break;
+        case error.TIMEOUT:
+            message += 'Location request timed out';
+            break;
+        default:
+            message += 'Unknown error occurred';
+    }
+    
+    updateStatus(message, 'error');
+    document.getElementById('start-shot-btn').disabled = false;
+    document.getElementById('end-shot-btn').disabled = true;
+    document.getElementById('cancel-shot-btn').disabled = true;
+    
+    if (gpsTracking.watchId) {
+        navigator.geolocation.clearWatch(gpsTracking.watchId);
+    }
+}
 </script>
 {% endblock %}

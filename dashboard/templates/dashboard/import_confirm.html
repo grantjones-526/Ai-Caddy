@@ -1,0 +1,56 @@
+{% extends 'dashboard/base.html' %}
+
+{% block content %}
+<h2>Confirm Import</h2>
+
+<div class="card">
+    <form method="post">
+        {% csrf_token %}
+        
+        <h3>Import Summary</h3>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 2rem;">
+            <div style="padding: 1rem; background: var(--cream); border-radius: 6px; border: 2px solid var(--masters-green);">
+                <div style="font-size: 2em; font-weight: bold; color: var(--masters-green);">
+                    {{ total_rounds }}
+                </div>
+                <div style="color: var(--masters-green-dark);">Rounds</div>
+            </div>
+            <div style="padding: 1rem; background: var(--cream); border-radius: 6px; border: 2px solid var(--masters-green);">
+                <div style="font-size: 2em; font-weight: bold; color: var(--masters-green);">
+                    {{ total_shots }}
+                </div>
+                <div style="color: var(--masters-green-dark);">Shots</div>
+            </div>
+        </div>
+        
+        {% if duplicate_rounds %}
+        <div style="padding: 1rem; background: #fff3cd; border-left: 4px solid #ffc107; border-radius: 4px; margin-bottom: 1.5rem;">
+            <strong>⚠️ Duplicate Rounds Detected:</strong>
+            <ul style="margin: 0.5rem 0 0 0; padding-left: 1.5rem;">
+                {% for dup in duplicate_rounds %}
+                <li>{{ dup.course }} on {{ dup.date }}</li>
+                {% endfor %}
+            </ul>
+            <div class="form-group" style="margin-top: 1rem;">
+                <label style="display: flex; align-items: center; cursor: pointer;">
+                    <input type="checkbox" name="merge_duplicates" style="margin-right: 0.5rem; width: auto;">
+                    <span>Merge with existing rounds (add shots to existing rounds instead of skipping)</span>
+                </label>
+            </div>
+        </div>
+        {% endif %}
+        
+        <div style="padding: 1rem; background: #d1ecf1; border-left: 4px solid #17a2b8; border-radius: 4px; margin-bottom: 1.5rem;">
+            <strong>ℹ️ Note:</strong> Shots will be matched to clubs in your bag by name. 
+            Shots with club names that don't match will be skipped. 
+            Lie will be set to "Tee Box" for Driver/Tee clubs, "Fairway" for others.
+        </div>
+        
+        <div style="display: flex; gap: 1rem; margin-top: 2rem;">
+            <button type="submit" class="btn">Confirm and Import</button>
+            <a href="{% url 'import_launch_monitor' %}" class="button-secondary">Cancel</a>
+        </div>
+    </form>
+</div>
+{% endblock %}
+
