@@ -1,0 +1,955 @@
+================================================================================
+                    AI CADDY - PROJECT REPORT
+                    AI-Powered Golf Club Recommendation System
+================================================================================
+
+Author: Grant Jones
+Date: 2025
+Project Type: Web Application with Machine Learning Integration
+License: MIT License
+
+================================================================================
+1. PROJECT BACKGROUND
+================================================================================
+
+1.1 Problem Statement
+--------------------
+Golfers face a fundamental challenge when selecting clubs during a round: 
+determining which club to use based on distance, lie conditions, hole 
+characteristics, and personal playing style. Traditional methods rely on:
+- Memory of past performance
+- General yardage charts
+- Guesswork and intuition
+- Trial and error
+
+These approaches lead to inconsistent performance, suboptimal club selection, 
+and missed scoring opportunities. The problem is compounded by the fact that 
+each golfer has unique swing characteristics, and performance varies 
+significantly based on:
+- Lie conditions (fairway, rough, tee box, sand)
+- Hole characteristics (straight, dogleg left, dogleg right)
+- Shot shape preferences (straight, fade, draw, slice, hook)
+- Environmental factors
+
+1.2 Market Context
+------------------
+The golf technology market has seen significant growth with launch monitors, 
+GPS devices, and swing analyzers. However, most solutions focus on:
+- Swing mechanics analysis
+- Ball flight data collection
+- Course mapping
+
+Few solutions provide intelligent, personalized club recommendations based on 
+historical performance data using machine learning algorithms.
+
+1.3 Solution Overview
+--------------------
+Ai Caddy addresses this gap by providing an intelligent, data-driven club 
+recommendation system that:
+- Analyzes historical shot data using machine learning
+- Provides personalized recommendations based on current situation
+- Tracks performance metrics over time
+- Integrates with popular launch monitor devices
+- Offers visual analytics for game improvement
+
+================================================================================
+2. OBJECTIVE (GOAL)
+================================================================================
+
+2.1 Primary Objective
+---------------------
+Develop a web-based application that uses machine learning (K-Nearest Neighbors 
+algorithm) to provide personalized golf club recommendations based on:
+- Historical shot performance data
+- Current shot parameters (distance, lie, hole bend, shot shape)
+- User-specific playing patterns
+
+2.2 Secondary Objectives
+------------------------
+1. Create a comprehensive shot tracking system for rounds and individual shots
+2. Implement data import functionality for multiple launch monitor devices
+3. Provide statistical analysis of club performance (averages, consistency)
+4. Develop an intuitive, responsive user interface
+5. Enable GPS-based shot distance measurement
+6. Create visual analytics for shot pattern analysis
+7. Deploy application to cloud hosting platform (Render.com)
+
+2.3 Success Criteria
+--------------------
+- System provides accurate club recommendations with confidence scoring
+- Users can track rounds and shots efficiently
+- Launch monitor data can be imported from multiple device types
+- Application is accessible on desktop and mobile devices
+- Database efficiently stores and retrieves shot data
+- Machine learning algorithm adapts to user's historical data
+- Application is deployed and accessible online
+
+================================================================================
+3. REQUIREMENTS
+================================================================================
+
+3.1 Functional Requirements
+---------------------------
+
+FR1. User Authentication
+    - Users must be able to create accounts
+    - Users must be able to log in and log out
+    - User sessions must be maintained securely
+    - Each user's data must be isolated
+
+FR2. Club Management
+    - Users must have a default set of clubs upon registration
+    - Users can view all clubs in their bag
+    - Club information includes name and performance statistics
+
+FR3. Round Tracking
+    - Users can create new golf rounds
+    - Each round must include course name and date
+    - Users can view list of all rounds
+    - Users can view detailed information for a specific round
+
+FR4. Shot Entry
+    - Users can manually enter shot data (club, distance, lie, shot shape)
+    - Users can enter multiple shots per round
+    - Users can use GPS to measure shot distances
+    - Shot data must include: club, distance (yards), lie, shot shape
+
+FR5. Launch Monitor Import
+    - System must support CSV and JSON file formats
+    - System must parse data from multiple devices:
+      * Garmin R10
+      * SkyTrak+
+      * Flightscope Mevo+
+      * Arccos Caddie
+      * Generic Launch Monitor
+    - System must provide preview before import
+    - System must handle parsing errors gracefully
+    - System must map device-specific fields to standardized format
+
+FR6. Club Recommendations
+    - System must use K-Nearest Neighbors algorithm
+    - Recommendations must consider:
+      * Distance to hole
+      * Lie (Fairway, Rough, Tee Box, Sand)
+      * Hole bend (Straight, Dogleg Left, Dogleg Right)
+      * Shot shape preference (Straight, Fade, Draw, Slice, Hook)
+    - System must provide 1-3 club recommendations
+    - Each recommendation must include:
+      * Club name
+      * Average distance for that lie
+      * Confidence level (High/Medium/Low)
+      * Probability score
+      * Agreement percentage
+    - System must never recommend Driver if lie is not Tee Box
+    - System must provide fallback recommendations when KNN has no good neighbors
+
+FR7. Performance Statistics
+    - System must calculate average distance per club
+    - System must separate statistics by lie (Fairway/Tee Box vs Rough)
+    - System must calculate standard deviation (consistency metric)
+    - Statistics must update automatically as new shots are added
+
+FR8. Data Visualization
+    - System must provide interactive visualization of shot data
+    - Visualization must show shot clustering in feature space
+    - Visualization must use PCA for dimensionality reduction
+    - Visualization must highlight query point and nearest neighbors
+
+FR9. Data Management
+    - Users can clear all their data
+    - System must provide confirmation before data deletion
+    - Users can load test data for demonstration purposes
+
+3.2 Non-Functional Requirements
+-------------------------------
+
+NFR1. Performance
+    - Page load times must be under 3 seconds
+    - Recommendation generation must complete within 2 seconds
+    - Database queries must be optimized using annotations and prefetching
+
+NFR2. Usability
+    - Interface must be intuitive and easy to navigate
+    - Application must be responsive (mobile, tablet, desktop)
+    - Error messages must be clear and actionable
+    - Forms must provide validation feedback
+
+NFR3. Reliability
+    - System must handle invalid input gracefully
+    - System must provide fallback recommendations when data is insufficient
+    - System must handle missing or malformed launch monitor data
+    - Application must not crash on unexpected errors
+
+NFR4. Security
+    - User passwords must be hashed (Django default)
+    - User data must be isolated by user account
+    - CSRF protection must be enabled
+    - SQL injection prevention (Django ORM)
+
+NFR5. Scalability
+    - Database must efficiently handle growing shot data
+    - Static files must be served efficiently (WhiteNoise)
+    - Application must be deployable to cloud platforms
+
+NFR6. Maintainability
+    - Code must be well-documented
+    - Models must follow Django best practices
+    - Code must be modular and organized
+
+NFR7. Compatibility
+    - Application must work on modern browsers (Chrome, Firefox, Safari, Edge)
+    - Application must work on mobile devices (iOS, Android)
+    - Application must support Python 3.11+
+
+================================================================================
+4. TECHNICAL DETAILS
+================================================================================
+
+4.1 Technology Stack
+-------------------
+
+Backend Framework:
+- Django 5.2.7: High-level Python web framework
+- Python 3.11+: Programming language
+
+Database:
+- PostgreSQL: Production database (Render.com)
+- SQLite: Development database
+
+Machine Learning:
+- scikit-learn 1.3.0+: K-Nearest Neighbors classifier
+- NumPy 1.26.0+: Numerical computing
+- PCA (Principal Component Analysis): Dimensionality reduction for visualization
+
+Static File Serving:
+- WhiteNoise 6.6.0+: Static file serving in production
+- Django Static Files: Static file management
+
+Web Server:
+- Gunicorn 21.2.0+: WSGI HTTP server for production
+
+Configuration:
+- python-decouple 3.8: Environment variable management
+
+Frontend:
+- HTML5/CSS3: Markup and styling
+- JavaScript: Client-side interactivity
+- Plotly.js: Data visualization (via CDN)
+- Google Fonts: Press Start 2P (pixel font)
+
+Hosting:
+- Render.com: Cloud hosting platform
+
+4.2 System Architecture
+-----------------------
+
+4.2.1 Application Structure
+---------------------------
+The application follows Django's Model-View-Template (MVT) architecture:
+
+Models (dashboard/models.py):
+- Club: Represents golf clubs in user's bag
+- GolfRound: Represents a complete round of golf
+- Shot: Represents individual shots with distance, lie, shot shape
+- LaunchMonitorImport: Tracks import operations and status
+
+Views (dashboard/views.py):
+- Authentication views (signup, login, logout)
+- Dashboard view (club statistics, recent rounds)
+- Round management (add, view details)
+- Recommendation engine (KNN algorithm)
+- Launch monitor import (upload, parse, preview, confirm)
+- Data management (clear data, load test data)
+- Visualization (PCA-based shot clustering)
+
+Templates (dashboard/templates/):
+- Base template with navigation
+- Dashboard, rounds, recommendations
+- Authentication pages
+- Import and data management pages
+
+Static Files (static/dashboard/):
+- CSS styling (Masters Tournament theme)
+- Images (logo)
+- Responsive design for mobile devices
+
+4.2.2 Database Schema
+--------------------
+
+User (Django built-in):
+- id, username, password (hashed), email, etc.
+
+Club:
+- id (Primary Key)
+- user (Foreign Key to User)
+- name (CharField, max 100)
+
+GolfRound:
+- id (Primary Key)
+- user (Foreign Key to User)
+- date (DateField, auto_now_add)
+- course_name (CharField, max 200)
+
+Shot:
+- id (Primary Key)
+- golf_round (Foreign Key to GolfRound, CASCADE)
+- club (Foreign Key to Club, CASCADE)
+- distance (PositiveIntegerField, yards)
+- shot_shape (CharField, choices: Straight, Fade, Draw, Slice, Hook)
+- lie (CharField, choices: Fairway, Rough, Sand, Tee Box)
+
+LaunchMonitorImport:
+- id (Primary Key)
+- user (Foreign Key to User)
+- device_type (CharField, choices)
+- file_name (CharField)
+- file_size (PositiveIntegerField)
+- raw_data (TextField, JSON)
+- parsed_data (JSONField)
+- status (CharField, choices)
+- error_log (TextField)
+- rounds_created (PositiveIntegerField)
+- shots_created (PositiveIntegerField)
+- created_at (DateTimeField)
+- imported_at (DateTimeField)
+
+4.2.3 Machine Learning Algorithm
+--------------------------------
+
+Algorithm: K-Nearest Neighbors (KNN) Classifier
+
+Features (Input):
+1. Distance to hole (numeric, yards)
+2. Lie (categorical: Fairway, Rough, Tee Box, Sand) - Label Encoded
+3. Hole bend (categorical: Straight, Dogleg Left, Dogleg Right) - Label Encoded
+4. Shot shape (categorical: Straight, Fade, Draw, Slice, Hook) - Label Encoded
+
+Target (Output):
+- Club name (categorical) - Label Encoded
+
+Algorithm Parameters:
+- k (number of neighbors): Dynamic, calculated as max(3, min(10, sqrt(n_samples)))
+- weights: 'distance' (closer neighbors have more influence)
+- distance metric: Euclidean (default)
+
+Training Process:
+1. Collect all historical shots for the user
+2. Extract features: distance, lie, bend (inferred from shot_shape), shot_shape
+3. Encode categorical features using LabelEncoder
+4. Combine features into feature matrix X_train
+5. Extract target labels (club names) into y_train
+6. Train KNN classifier with distance-weighted voting
+
+Prediction Process:
+1. Encode query features (distance, lie, bend, shot_shape)
+2. Find k nearest neighbors in feature space
+3. Calculate distance-weighted scores for each club
+4. Calculate confidence based on neighbor distances
+5. Calculate agreement (percentage of neighbors recommending same club)
+6. Rank clubs by combined score (probability * agreement * distance_confidence)
+7. Filter out Driver if lie is not Tee Box
+8. Return top 1-3 recommendations with statistics
+
+Fallback Logic:
+- If KNN has no good neighbors (average neighbor distance > 2x query distance):
+  - Recommend furthest club(s) in bag based on average distance for the lie
+  - Exclude Driver if lie is not Tee Box
+  - Mark confidence as "Low"
+
+4.2.4 Data Processing Pipeline
+------------------------------
+
+Launch Monitor Import:
+1. User uploads CSV or JSON file
+2. System detects device type (auto-detect or manual selection)
+3. Parser class (LaunchMonitorParser) processes file:
+   - CSV: DictReader, row-by-row parsing
+   - JSON: json.loads, recursive parsing
+4. Normalize data to standard format:
+   - Extract: date, course, hole, club, distance
+   - Optional: carry distance, launch angle, ball speed, spin rate
+   - Infer shot shape from launch direction and distance metrics
+5. Group shots by round (date + course)
+6. Store raw data and parsed data in LaunchMonitorImport model
+7. Preview shown to user for confirmation
+8. On confirmation, create GolfRound and Shot objects
+9. Update import status and statistics
+
+GPS Shot Tracking:
+- JavaScript geolocation API
+- Calculate distance between two GPS coordinates
+- Update distance input field automatically
+
+4.2.5 Performance Optimizations
+-------------------------------
+
+Database Queries:
+- Use Django ORM annotations (Avg, StdDev) instead of Python calculations
+- Use prefetch_related for related objects
+- Filter queries by user to reduce data size
+
+Static Files:
+- WhiteNoise for efficient static file serving
+- Compressed static files in production
+- CDN for external resources (Google Fonts, Plotly.js)
+
+Caching:
+- Django's template caching
+- Efficient queryset evaluation
+
+4.2.6 Security Measures
+-----------------------
+
+Authentication:
+- Django's built-in User model with password hashing (PBKDF2)
+- Session-based authentication
+- Login required decorators for protected views
+
+Data Protection:
+- CSRF tokens on all forms
+- SQL injection prevention (Django ORM parameterized queries)
+- User data isolation (filter by request.user)
+
+Input Validation:
+- Form validation (Django forms)
+- Type checking and error handling
+- File size limits for uploads
+
+4.2.7 Deployment Configuration
+------------------------------
+
+Build Process (build.sh):
+1. Install Python dependencies (pip install -r requirements.txt)
+2. Run database migrations (python manage.py migrate --noinput)
+3. Collect static files (python manage.py collectstatic --noinput)
+
+Environment Variables:
+- SECRET_KEY: Django secret key
+- DEBUG: False in production
+- ALLOWED_HOSTS: Comma-separated list of allowed domains
+- DB_USE_SQLITE: Boolean (True for dev, False for production)
+- DB_NAME, DB_USER, DB_PASSWORD, DB_HOST, DB_PORT: PostgreSQL credentials
+
+Web Server:
+- Gunicorn with WSGI application
+- Process file (Procfile): web: gunicorn aicaddy.wsgi:application
+
+Static Files:
+- STATIC_ROOT: Directory for collected static files
+- STATIC_URL: URL prefix for static files (/static/)
+- WhiteNoise middleware for serving static files
+
+4.3 User Interface Design
+-------------------------
+
+Theme: Masters Tournament inspired
+- Color scheme: Masters green (#004029), cream (#f5f5dc), wood brown
+- Typography: Press Start 2P (pixel font) for retro aesthetic
+- Layout: Clean, card-based design
+
+Responsive Design:
+- Mobile-first approach
+- Breakpoints: 480px (phone), 768px (tablet)
+- Table converted to card layout on mobile
+- Flexible navigation menu
+- Touch-friendly buttons
+
+Key Pages:
+1. Login/Signup: Centered form with logo
+2. Dashboard: Club performance table, recent rounds list
+3. Add Round: Form with GPS tracking and manual entry
+4. Recommendations: Input form and results display
+5. Round Detail: Shot-by-shot breakdown
+6. Import Launch Monitor: File upload and preview
+
+================================================================================
+5. TEST CASES
+================================================================================
+
+5.1 Authentication Tests
+------------------------
+
+TC-AUTH-001: User Registration
+    Preconditions: User is not logged in
+    Steps:
+        1. Navigate to signup page
+        2. Enter username, password, password confirmation
+        3. Submit form
+    Expected Result: 
+        - User account created
+        - User logged in automatically
+        - Default clubs added to user's bag
+        - Redirected to dashboard
+
+TC-AUTH-002: User Login
+    Preconditions: User account exists
+    Steps:
+        1. Navigate to login page
+        2. Enter valid username and password
+        3. Submit form
+    Expected Result:
+        - User logged in
+        - Redirected to dashboard
+        - Session maintained
+
+TC-AUTH-003: Invalid Login
+    Preconditions: User account exists
+    Steps:
+        1. Navigate to login page
+        2. Enter invalid username or password
+        3. Submit form
+    Expected Result:
+        - Error message displayed
+        - User remains on login page
+        - Not logged in
+
+TC-AUTH-004: Logout
+    Preconditions: User is logged in
+    Steps:
+        1. Click logout button
+    Expected Result:
+        - User logged out
+        - Session terminated
+        - Redirected to login page
+
+5.2 Round Management Tests
+--------------------------
+
+TC-ROUND-001: Create New Round
+    Preconditions: User is logged in, has clubs in bag
+    Steps:
+        1. Navigate to "Add Round"
+        2. Enter course name
+        3. Add at least one shot (club, distance, lie, shot shape)
+        4. Submit form
+    Expected Result:
+        - Round created in database
+        - Shot(s) associated with round
+        - Redirected to round detail page
+        - Round appears in recent rounds list
+
+TC-ROUND-002: Create Round with Multiple Shots
+    Preconditions: User is logged in
+    Steps:
+        1. Navigate to "Add Round"
+        2. Enter course name
+        3. Add 5 shots with different clubs
+        4. Submit form
+    Expected Result:
+        - Round created with 5 shots
+        - All shots saved correctly
+        - Round detail shows all 5 shots
+
+TC-ROUND-003: Create Round with GPS Tracking
+    Preconditions: User is logged in, browser supports geolocation
+    Steps:
+        1. Navigate to "Add Round"
+        2. Enter course name
+        3. Click "Get GPS Location" for shot start
+        4. Click "Get GPS Location" for shot end
+        5. Verify distance calculated
+        6. Complete shot entry and submit
+    Expected Result:
+        - GPS coordinates retrieved
+        - Distance calculated correctly
+        - Shot saved with calculated distance
+
+TC-ROUND-004: View Round Detail
+    Preconditions: Round exists for user
+    Steps:
+        1. Navigate to dashboard
+        2. Click on a round from recent rounds list
+    Expected Result:
+        - Round detail page displays
+        - Shows course name and date
+        - Lists all shots with details
+
+TC-ROUND-005: Create Round Without Shots
+    Preconditions: User is logged in
+    Steps:
+        1. Navigate to "Add Round"
+        2. Enter course name only
+        3. Leave all shot fields empty
+        4. Submit form
+    Expected Result:
+        - Round created successfully
+        - No shots associated
+        - Round appears in list
+
+5.3 Recommendation Tests
+-------------------------
+
+TC-REC-001: Get Recommendation with Sufficient Data
+    Preconditions: User has at least 3 shots in database
+    Steps:
+        1. Navigate to "Get Recommendation"
+        2. Enter distance: 150 yards
+        3. Select lie: Fairway
+        4. Select bend: Straight
+        5. Select shot shape: Straight
+        6. Click "Get Recommendation"
+    Expected Result:
+        - 1-3 club recommendations displayed
+        - Each recommendation shows:
+          * Club name
+          * Average distance
+          * Confidence level
+          * Probability percentage
+        - Recommendations are relevant to input
+
+TC-REC-002: Recommendation with Insufficient Data
+    Preconditions: User has less than 3 shots
+    Steps:
+        1. Navigate to "Get Recommendation"
+        2. Enter parameters
+        3. Submit
+    Expected Result:
+        - Error message: "Not enough shot data. You need at least 3 shots."
+        - No recommendations displayed
+
+TC-REC-003: Driver Exclusion Rule
+    Preconditions: User has Driver in bag, has shot data
+    Steps:
+        1. Navigate to "Get Recommendation"
+        2. Enter distance: 250 yards
+        3. Select lie: Rough (not Tee Box)
+        4. Submit
+    Expected Result:
+        - Driver is NOT in recommendations
+        - Only other clubs recommended
+
+TC-REC-004: Fallback Recommendation
+    Preconditions: User has shot data, but input distance is very far
+    Steps:
+        1. Navigate to "Get Recommendation"
+        2. Enter distance: 500 yards (unrealistic)
+        3. Select lie: Fairway
+        4. Submit
+    Expected Result:
+        - System uses fallback logic
+        - Recommends furthest club(s) in bag
+        - Confidence marked as "Low"
+        - Driver excluded if lie is not Tee Box
+
+TC-REC-005: Recommendation with Different Lies
+    Preconditions: User has shots from multiple lies
+    Steps:
+        1. Get recommendation for Fairway
+        2. Get recommendation for Rough
+        3. Get recommendation for Tee Box
+    Expected Result:
+        - Recommendations differ based on lie
+        - Average distances reflect lie-specific statistics
+        - Driver only appears for Tee Box
+
+5.4 Launch Monitor Import Tests
+-------------------------------
+
+TC-IMPORT-001: Import Garmin R10 CSV
+    Preconditions: User is logged in, has Garmin R10 CSV file
+    Steps:
+        1. Navigate to "Import Launch Monitor"
+        2. Select device: Garmin R10
+        3. Upload CSV file
+        4. Review preview
+        5. Confirm import
+    Expected Result:
+        - File parsed successfully
+        - Preview shows rounds and shots
+        - Import creates rounds and shots in database
+        - Success message displayed
+
+TC-IMPORT-002: Import SkyTrak+ CSV
+    Preconditions: User is logged in, has SkyTrak+ CSV file
+    Steps:
+        1. Navigate to "Import Launch Monitor"
+        2. Select device: SkyTrak+
+        3. Upload CSV file
+        4. Review and confirm
+    Expected Result:
+        - Data parsed correctly
+        - Shots imported as practice session
+        - All shots associated with correct clubs
+
+TC-IMPORT-003: Import with Errors
+    Preconditions: User is logged in, has malformed CSV file
+    Steps:
+        1. Navigate to "Import Launch Monitor"
+        2. Upload file with missing required fields
+        3. Review preview
+    Expected Result:
+        - Errors listed in preview
+        - Valid rows still shown
+        - User can choose to import partial data
+
+TC-IMPORT-004: Auto-Detect Device Type
+    Preconditions: User is logged in, has CSV file
+    Steps:
+        1. Navigate to "Import Launch Monitor"
+        2. Leave device type as "Auto-detect"
+        3. Upload file
+    Expected Result:
+        - Device type detected automatically
+        - File parsed using correct parser
+        - Preview shows correct data
+
+TC-IMPORT-005: Import JSON Format
+    Preconditions: User is logged in, has JSON file
+    Steps:
+        1. Navigate to "Import Launch Monitor"
+        2. Select device type
+        3. Upload JSON file
+        4. Review and confirm
+    Expected Result:
+        - JSON parsed correctly
+        - Data normalized to standard format
+        - Rounds and shots created
+
+5.5 Statistics Tests
+--------------------
+
+TC-STAT-001: Calculate Average Distance
+    Preconditions: User has multiple shots for a club
+    Steps:
+        1. Add shots: 7 Iron, 150yds; 7 Iron, 155yds; 7 Iron, 145yds
+        2. Navigate to dashboard
+    Expected Result:
+        - Average distance for 7 Iron: 150 yards
+        - Statistics update automatically
+
+TC-STAT-002: Separate Statistics by Lie
+    Preconditions: User has shots from different lies
+    Steps:
+        1. Add shots: Driver from Tee Box (250yds), Driver from Fairway (240yds)
+        2. View dashboard
+    Expected Result:
+        - Fairway/Tee Box average: 245 yards (or appropriate calculation)
+        - Rough average: None or separate value
+        - Statistics separated correctly
+
+TC-STAT-003: Standard Deviation Calculation
+    Preconditions: User has multiple shots with varying distances
+    Steps:
+        1. Add shots with varying distances for same club
+        2. View dashboard
+    Expected Result:
+        - Standard deviation calculated and displayed
+        - Higher variation = higher std dev
+
+TC-STAT-004: Statistics Update After New Shot
+    Preconditions: User has existing statistics
+    Steps:
+        1. View current average for a club
+        2. Add new shot with that club
+        3. Refresh dashboard
+    Expected Result:
+        - Statistics recalculated
+        - New average reflects new shot
+        - Update is immediate
+
+5.6 User Interface Tests
+-----------------------
+
+TC-UI-001: Responsive Design - Mobile
+    Preconditions: Application deployed
+    Steps:
+        1. Open application on mobile device (or resize browser to < 768px)
+        2. Navigate through all pages
+    Expected Result:
+        - Layout adapts to mobile screen
+        - Table converts to card layout
+        - Navigation menu is accessible
+        - Buttons are touch-friendly
+        - Text is readable
+
+TC-UI-002: Responsive Design - Tablet
+    Preconditions: Application deployed
+    Steps:
+        1. Open application on tablet (or resize to 768px-1024px)
+    Expected Result:
+        - Layout optimized for tablet
+        - Elements properly spaced
+        - Navigation works correctly
+
+TC-UI-003: Form Validation
+    Preconditions: User is logged in
+    Steps:
+        1. Navigate to "Add Round"
+        2. Try to submit form with invalid data
+    Expected Result:
+        - Validation errors displayed
+        - Invalid fields highlighted
+        - Form not submitted
+
+TC-UI-004: Error Messages
+    Preconditions: Application running
+    Steps:
+        1. Trigger various error conditions (invalid login, insufficient data, etc.)
+    Expected Result:
+        - Clear, actionable error messages
+        - Messages explain what went wrong
+        - User knows how to fix issue
+
+TC-UI-005: Navigation
+    Preconditions: User is logged in
+    Steps:
+        1. Click through all navigation links
+    Expected Result:
+        - All links work correctly
+        - Pages load without errors
+        - Active page highlighted in navigation
+
+5.7 Data Management Tests
+-------------------------
+
+TC-DATA-001: Clear All Data
+    Preconditions: User has rounds and shots
+    Steps:
+        1. Navigate to "Clear All Data"
+        2. Confirm deletion
+    Expected Result:
+        - Confirmation dialog shown
+        - All user's rounds and shots deleted
+        - Clubs remain (default set)
+        - Success message displayed
+
+TC-DATA-002: Load Test Data
+    Preconditions: User is logged in
+    Steps:
+        1. Navigate to "Load Test Data"
+        2. Confirm loading
+    Expected Result:
+        - Test rounds and shots created
+        - Data appears in dashboard
+        - Can use data for recommendations
+
+5.8 Integration Tests
+---------------------
+
+TC-INT-001: End-to-End Workflow
+    Preconditions: New user account
+    Steps:
+        1. Register new account
+        2. Add a round with multiple shots
+        3. View dashboard statistics
+        4. Get club recommendation
+        5. Import launch monitor data
+        6. View updated statistics
+    Expected Result:
+        - All steps complete successfully
+        - Data flows correctly between components
+        - Statistics update after import
+        - Recommendations improve with more data
+
+TC-INT-002: Data Consistency
+    Preconditions: User has data
+    Steps:
+        1. Add shot with specific club
+        2. Check club statistics
+        3. View round detail
+        4. Get recommendation
+    Expected Result:
+        - Shot appears in round detail
+        - Statistics include new shot
+        - Recommendation considers new shot
+        - Data is consistent across views
+
+5.9 Performance Tests
+---------------------
+
+TC-PERF-001: Page Load Time
+    Preconditions: Application deployed
+    Steps:
+        1. Measure time to load dashboard
+        2. Measure time to load recommendations page
+    Expected Result:
+        - Pages load within 3 seconds
+        - Static files load efficiently
+
+TC-PERF-002: Recommendation Generation Speed
+    Preconditions: User has 100+ shots
+    Steps:
+        1. Request recommendation
+        2. Measure time to generate
+    Expected Result:
+        - Recommendation generated within 2 seconds
+        - Algorithm scales with data size
+
+TC-PERF-003: Database Query Performance
+    Preconditions: User has many rounds and shots
+    Steps:
+        1. Load dashboard
+        2. Check database query count and time
+    Expected Result:
+        - Queries optimized (use annotations)
+        - Minimal number of database queries
+        - Fast response time
+
+5.10 Security Tests
+-------------------
+
+TC-SEC-001: User Data Isolation
+    Preconditions: Multiple user accounts exist
+    Steps:
+        1. Log in as User A
+        2. Attempt to access User B's round (via URL manipulation)
+    Expected Result:
+        - Access denied (404 or permission error)
+        - User A cannot see User B's data
+
+TC-SEC-002: CSRF Protection
+    Preconditions: Application running
+    Steps:
+        1. Attempt to submit form without CSRF token
+    Expected Result:
+        - Request rejected
+        - Error message displayed
+
+TC-SEC-003: SQL Injection Prevention
+    Preconditions: Application running
+    Steps:
+        1. Attempt SQL injection in form fields
+    Expected Result:
+        - Input sanitized
+        - No SQL executed
+        - Error handled gracefully
+
+================================================================================
+6. CONCLUSION
+================================================================================
+
+Ai Caddy successfully implements an AI-powered golf club recommendation system
+that addresses the core problem of club selection in golf. The application:
+
+- Provides intelligent, personalized recommendations using machine learning
+- Tracks comprehensive shot and round data
+- Integrates with multiple launch monitor devices
+- Offers statistical analysis and visualizations
+- Delivers a responsive, user-friendly interface
+- Is deployed and accessible online
+
+The K-Nearest Neighbors algorithm effectively learns from user's historical data
+and provides relevant recommendations based on current shot parameters. The
+system includes robust error handling, fallback logic, and data validation to
+ensure reliability.
+
+Future enhancements could include:
+- Weather condition integration
+- Course-specific recommendations
+- Advanced analytics and trends
+- Mobile native applications
+- Social features (sharing rounds, leaderboards)
+- Integration with more launch monitor devices
+
+The project demonstrates proficiency in:
+- Full-stack web development (Django, HTML/CSS/JavaScript)
+- Machine learning implementation (scikit-learn, KNN)
+- Database design and optimization
+- API integration (launch monitor parsers)
+- Cloud deployment (Render.com)
+- Responsive design and UX
+
+================================================================================
+END OF REPORT
+================================================================================
+
