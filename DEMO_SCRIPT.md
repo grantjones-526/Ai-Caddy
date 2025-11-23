@@ -15,7 +15,7 @@
 
 **Key Features:**
 
-1. **Smart Recommendations** - Our KNN algorithm analyzes your past shots, considering distance, lie, hole bend, and shot shape to recommend the best club for your current situation.
+1. **Smart Recommendations** - The KNN algorithm analyzes your past shots, considering distance, lie, hole bend, and shot shape to recommend the best club for your current situation.
 
 2. **Performance Tracking** - Track every round and shot, with detailed statistics showing your average distance for each club from different lies - fairway, rough, and tee box.
 
@@ -40,35 +40,3 @@
 ## Total Time: ~90 seconds
 
 ---
-
-## Notes for Presenter:
-- **Pace**: Speak clearly at approximately 150 words per minute
-- **Demo Flow**: 
-  1. Show dashboard with club statistics
-  2. Demonstrate adding a round with GPS tracking
-  3. Show recommendation feature with different lies
-  4. Briefly show visualization
-- **Key Points to Emphasize**:
-  - Personalization through machine learning
-  - Real-world usability (GPS tracking)
-  - Data-driven decision making
-- **Practice**: Rehearse to ensure smooth transitions between sections
-
----
-
-## Alternative Shorter Version (60 seconds)
-
-**Introduction (5s)**: "Ai Caddy - an AI-powered golf club recommendation system."
-
-**Problem (10s)**: "Golfers struggle to choose the right club. Ai Caddy uses machine learning to analyze your shot history and recommend the perfect club based on distance, lie, and course conditions."
-
-**Features (30s)**: 
-- "KNN algorithm provides personalized recommendations"
-- "Track rounds with GPS shot measurement"
-- "Import from launch monitors"
-- "Visual analytics show your performance patterns"
-
-**Tech (5s)**: "Built with Django, Python, and scikit-learn."
-
-**Try It (10s)**: "Try it live at [your URL]. Sign up and start improving your game with data-driven decisions!"
-

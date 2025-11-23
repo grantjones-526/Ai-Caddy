@@ -1,4 +1,4 @@
-# 🏌️‍♂️ Ai Caddy
+# Ai Caddy
 
 **AI-Powered Golf Club Recommendation System**
 
@@ -82,8 +82,8 @@ Ai Caddy is an intelligent web application that uses machine learning to help go
 
 1. **Clone the repository**
    ```bash
-   git clone https://github.com/yourusername/aicaddy.git
-   cd aicaddy
+   git clone https://github.com/grantjones-526/Ai-Caddy.git
+   cd Ai-Caddy
    ```
 
 2. **Create a virtual environment**
@@ -106,15 +106,15 @@ Ai Caddy is an intelligent web application that uses machine learning to help go
    
    Create a `.env` file in the project root:
    ```env
-   SECRET_KEY=your-secret-key-here
+   SECRET_KEY=
    DEBUG=True
    DB_USE_SQLITE=True
    
    # For PostgreSQL (production)
    # DB_USE_SQLITE=False
    # DB_NAME=aicaddy_db
-   # DB_USER=your_db_user
-   # DB_PASSWORD=your_db_password
+   # DB_USER=
+   # DB_PASSWORD=
    # DB_HOST=localhost
    # DB_PORT=5432
    ```
@@ -189,50 +189,6 @@ Ai Caddy is an intelligent web application that uses machine learning to help go
 
 ---
 
-## 🌐 Deployment
-
-### Deploying to Render.com
-
-1. **Push your code to GitHub**
-   ```bash
-   git add .
-   git commit -m "Initial commit"
-   git push origin main
-   ```
-
-2. **Create a Render account** and connect your GitHub repository
-
-3. **Create a PostgreSQL database** on Render
-
-4. **Create a new Web Service** with these settings:
-   - **Build Command**: `./build.sh` or `bash build.sh`
-   - **Start Command**: `gunicorn aicaddy.wsgi:application`
-   - **Environment**: Python 3
-
-5. **Set environment variables** in Render:
-   ```
-   SECRET_KEY=your-secret-key
-   DEBUG=False
-   ALLOWED_HOSTS=your-app.onrender.com
-   DB_USE_SQLITE=False
-   DB_NAME=your_db_name
-   DB_USER=your_db_user
-   DB_PASSWORD=your_db_password
-   DB_HOST=your_db_host
-   DB_PORT=5432
-   ```
-
-6. **Deploy**: Render will automatically build and deploy your application
-
-### Build Script
-
-The `build.sh` script automates:
-- Dependency installation
-- Database migrations
-- Static file collection
-
----
-
 ## 📁 Project Structure
 
 ```
@@ -259,18 +215,6 @@ aicaddy/
 
 ---
 
-## 🤝 Contributing
-
-Contributions are welcome! Please feel free to submit a Pull Request.
-
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
-3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
-4. Push to the branch (`git push origin feature/AmazingFeature`)
-5. Open a Pull Request
-
----
-
 ## 📝 License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
@@ -289,6 +233,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ## 📧 Contact
 
 For questions, suggestions, or support, please open an issue on GitHub.
+Or contact grantjones526@outlook.com
 
 ---
 
@@ -302,7 +247,4 @@ For questions, suggestions, or support, please open an issue on GitHub.
 - [ ] Shot trajectory visualization
 - [ ] Course-specific recommendations
 
----
-
-**Made with ❤️ for golfers who want to improve their game through data-driven decisions.**
 
