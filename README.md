@@ -13,23 +13,23 @@ Ai Caddy is an intelligent web application that uses machine learning to help go
 
 ## ✨ Features
 
-### 🎯 Smart Recommendations
+### Smart Recommendations
 - **K-Nearest Neighbors (KNN) Algorithm**: Analyzes your past shots to recommend the best club for your current situation
 - **Multi-Factor Analysis**: Considers distance to hole, lie (fairway/rough/tee box), hole bend, and shot shape
 - **Confidence Scoring**: Each recommendation includes confidence levels (High/Medium/Low) based on data quality
 - **Fallback Logic**: Automatically recommends your furthest club when input yardage exceeds historical data
 
-### 📊 Performance Tracking
+### Performance Tracking
 - **Club Statistics**: Track average distances for each club from different lies
 - **Consistency Metrics**: Standard deviation calculations show shot consistency
 - **Round History**: View detailed statistics for all your recorded rounds
 - **Visual Analytics**: Interactive visualizations showing shot clustering in feature space
 
-### 📱 GPS Shot Tracking
+### GPS Shot Tracking
 - **On-Course Data Entry**: Use your phone's GPS to automatically measure shot distances
 - **Seamless Integration**: Quick and easy shot entry while playing
 
-### 📥 Launch Monitor Integration
+### Launch Monitor Integration
 - **Multi-Device Support**: Import data from popular launch monitors:
   - Garmin R10
   - SkyTrak+
@@ -39,7 +39,7 @@ Ai Caddy is an intelligent web application that uses machine learning to help go
 - **CSV Import**: Bulk import shot data from CSV files
 - **Data Preview**: Review and confirm imported data before adding to your database
 
-### 🎨 Modern UI/UX
+### Modern UI/UX
 - **Responsive Design**: Fully optimized for desktop, tablet, and mobile devices
 - **Pixel Art Theme**: Retro-inspired design with Masters Tournament color scheme
 - **Mobile-First**: Card-based layouts for easy viewing on smartphones
@@ -47,7 +47,7 @@ Ai Caddy is an intelligent web application that uses machine learning to help go
 
 ---
 
-## 🛠️ Tech Stack
+## Tech Stack
 
 ### Backend
 - **Django 5.2.7** - High-level Python web framework
@@ -69,7 +69,7 @@ Ai Caddy is an intelligent web application that uses machine learning to help go
 
 ---
 
-## 🚀 Getting Started
+## Getting Started
 
 ### Prerequisites
 
@@ -145,7 +145,7 @@ Ai Caddy is an intelligent web application that uses machine learning to help go
 
 ---
 
-## 📖 Usage
+## Usage
 
 ### First Time Setup
 
@@ -189,7 +189,7 @@ Ai Caddy is an intelligent web application that uses machine learning to help go
 
 ---
 
-## 📁 Project Structure
+## Project Structure
 
 ```
 aicaddy/
@@ -215,13 +215,13 @@ aicaddy/
 
 ---
 
-## 📝 License
+## License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
 ---
 
-## 🙏 Acknowledgments
+## Acknowledgments
 
 - **Masters Tournament** - Color scheme inspiration
 - **Google Fonts** - Press Start 2P font
@@ -230,14 +230,14 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ---
 
-## 📧 Contact
+## Contact
 
 For questions, suggestions, or support, please open an issue on GitHub.
 Or contact grantjones526@outlook.com
 
 ---
 
-## 🎯 Roadmap
+## Roadmap
 
 - [ ] Advanced analytics dashboard
 - [ ] Weather condition integration
