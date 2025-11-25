@@ -11,7 +11,7 @@ Ai Caddy is an intelligent web application that uses machine learning to help go
 
 ---
 
-## ✨ Features
+## Features
 
 ### Smart Recommendations
 - **K-Nearest Neighbors (KNN) Algorithm**: Analyzes your past shots to recommend the best club for your current situation
