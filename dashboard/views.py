@@ -1,8 +1,3 @@
-"""
-Handles the application's backend logic.
-Each function corresponds to a page or an API endpoint, processing
-requests and interacting with the database models.
-"""
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.forms import UserCreationForm, AuthenticationForm
@@ -16,7 +11,6 @@ from .models import Club, GolfRound, Shot, LaunchMonitorImport
 from .parsers import LaunchMonitorParser
 import os
 import csv
-import statistics
 import json
 import numpy as np
 from sklearn.neighbors import KNeighborsClassifier
@@ -62,7 +56,7 @@ def dashboard_view(request):
         avg_fairway=Avg('shot__distance', filter=Q(shot__lie__in=['Fairway', 'Tee Box'])),
         avg_rough=Avg('shot__distance', filter=Q(shot__lie='Rough')),
         std_dev=StdDev('shot__distance')
-    ).prefetch_related('shot_set')
+    ).prefetch_related('shot_set').order_by('-avg_fairway', '-avg_rough')
     rounds = GolfRound.objects.filter(user=request.user).order_by('-date')
     return render(request, 'dashboard/dashboard.html', {'clubs': clubs, 'rounds': rounds})
 
@@ -102,17 +96,13 @@ def round_detail_view(request, round_id):
 
 @login_required
 def recommendation_view(request):
-    """
-    The core AI Caddy feature: recommends a club using KNN algorithm.
-    Uses distance, lie, bend, and shot_shape as features with flexibility to add more.
-    """
     context = {}
     if 'distance' in request.GET:
         try:
             distance_to_hole = int(request.GET.get('distance'))
             lie = request.GET.get('lie', 'Fairway')
             bend = request.GET.get('bend', 'Straight')
-            shot_shape = request.GET.get('shot_shape', 'Straight')  # Optional: can add to form later
+            shot_shape = request.GET.get('shot_shape', 'Straight')
             
             context['distance_input'] = distance_to_hole
             context['lie_input'] = lie
@@ -146,10 +136,10 @@ def recommendation_view(request):
                 
                 features_list.append([
                     shot.distance,      # Feature 1: Distance (numeric)
-                    shot.lie,           # Feature 2: Lie (categorical - will be encoded)
-                    inferred_bend,      # Feature 3: Bend (inferred from shot_shape) (categorical - will be encoded)
-                    shot.shot_shape     # Feature 4: Shot Shape (categorical - will be encoded)
-                    # Easy to add more features here in the future
+                    shot.lie,           # Feature 2: Lie (categorical)
+                    inferred_bend,      # Feature 3: Bend (inferred from shot_shape) (categorical)
+                    shot.shot_shape     # Feature 4: Shot Shape (categorical)
+                    # Add more features here in the future
                 ])
                 clubs_list.append(shot.club.name)  # Target: which club was used
             
