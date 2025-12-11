@@ -192,12 +192,35 @@ def recommendation_view(request):
             
             X_query = np.array([[distance_to_hole, lie_encoded_query, bend_encoded_query, shot_shape_encoded_query]])
             
+            # Create weighted distance metric function
+            # Weights: distance=5.0, lie=10.0 (most important), bend=1.0, shot_shape=1.0
+            def weighted_distance(x, y):
+                """
+                Custom weighted distance metric that heavily weights lie and distance.
+                x, y are feature vectors: [distance, lie_encoded, bend_encoded, shot_shape_encoded]
+                """
+                # Extract components
+                dist_diff = abs(x[0] - y[0])  # Distance difference
+                lie_diff = 0 if x[1] == y[1] else 10.0  # Lie mismatch gets heavy penalty
+                bend_diff = abs(x[2] - y[2])  # Bend difference
+                shot_shape_diff = abs(x[3] - y[3])  # Shot shape difference
+                
+                # Weighted distance: lie is most important, then distance
+                # Normalize distance by typical range (assume max 300 yards)
+                normalized_dist = (dist_diff / 300.0) * 5.0
+                normalized_bend = bend_diff * 1.0
+                normalized_shot_shape = shot_shape_diff * 1.0
+                
+                # Combine: lie mismatch is heavily penalized, distance is important
+                total_distance = lie_diff + normalized_dist + normalized_bend + normalized_shot_shape
+                return total_distance
+            
             # Determine optimal k (number of neighbors)
             # Use sqrt of sample size, but at least 3 and at most 10
             k = max(3, min(10, int(np.sqrt(len(X_train)))))
             
-            # Train KNN classifier
-            knn = KNeighborsClassifier(n_neighbors=k, weights='distance')
+            # Train KNN classifier with custom weighted distance metric
+            knn = KNeighborsClassifier(n_neighbors=k, weights='distance', metric=weighted_distance)
             knn.fit(X_train, y_train)
             
             # Get predictions and distances to neighbors
@@ -314,7 +337,7 @@ def recommendation_view(request):
                                         for name, data in sorted_by_combined if data['probability'] > 0]
             
             # Get club objects and calculate average distances for the specific lie
-            # Re-rank recommendations by average distance for the input lie (furthest first)
+            # Re-rank recommendations by how close the club's average distance (for this lie) is to the target distance
             club_distance_rankings = []
             for club_name, score_data in valid_recommendations:
                 # Never recommend Driver if lie is not Tee Box
@@ -336,14 +359,30 @@ def recommendation_view(request):
                 
                 # Only include clubs that have data for this lie
                 if avg_distance is not None and avg_distance > 0:
+                    # Calculate how close this club's average distance is to the target distance
+                    # Lower distance_diff means better match
+                    distance_diff = abs(avg_distance - distance_to_hole)
+                    
+                    # Combine KNN score with distance match score
+                    # Clubs whose average distance is closer to target get higher priority
+                    # Use inverse of distance difference (normalized) as a boost
+                    # Max distance difference we care about is ~100 yards
+                    distance_match_score = max(0, 1.0 - (distance_diff / 100.0))
+                    
+                    # Final score combines KNN combined_score with distance match
+                    # Weight: 70% KNN score, 30% distance match
+                    final_score = score_data['combined_score'] * 0.7 + distance_match_score * 0.3
+                    
                     club_distance_rankings.append({
                         'club_name': club_name,
                         'avg_distance': avg_distance,
-                        'score_data': score_data
+                        'distance_diff': distance_diff,
+                        'score_data': score_data,
+                        'final_score': final_score
                     })
             
-            # Sort by average distance (furthest first)
-            club_distance_rankings.sort(key=lambda x: x['avg_distance'], reverse=True)
+            # Sort by final score (highest first), then by distance difference (closest to target first)
+            club_distance_rankings.sort(key=lambda x: (x['final_score'], -x['distance_diff']), reverse=True)
             
             # Check if KNN has no good neighbors (neighbors are too far or no valid recommendations)
             # Use a threshold: if average neighbor distance is very large relative to the query distance,
@@ -378,17 +417,20 @@ def recommendation_view(request):
                     
                     # Only include clubs that have data for this lie
                     if avg_distance is not None and avg_distance > 0:
+                        # Calculate how close this club's average distance is to the target distance
+                        distance_diff = abs(avg_distance - distance_to_hole)
                         fallback_clubs.append({
                             'club_name': club.name,
                             'avg_distance': avg_distance,
+                            'distance_diff': distance_diff,
                             'club_obj': club
                         })
                 
-                # Sort by average distance (furthest first)
-                fallback_clubs.sort(key=lambda x: x['avg_distance'], reverse=True)
+                # Sort by distance difference (closest to target first)
+                fallback_clubs.sort(key=lambda x: x['distance_diff'])
                 
-                # Add the furthest club(s) as recommendations
-                for club_data in fallback_clubs[:2]:  # Top 2 furthest clubs
+                # Add the closest matching club(s) as recommendations
+                for club_data in fallback_clubs[:2]:  # Top 2 clubs closest to target distance
                     club_name = club_data['club_name']
                     avg_distance = int(round(club_data['avg_distance']))
                     
@@ -557,6 +599,28 @@ def recommendation_visualization_view(request):
         
         X_query = np.array([[distance_to_hole, lie_encoded_query, bend_encoded_query, shot_shape_encoded_query]])
         
+        # Create weighted distance metric function (same as recommendation_view)
+        def weighted_distance(x, y):
+            """
+            Custom weighted distance metric that heavily weights lie and distance.
+            x, y are feature vectors: [distance, lie_encoded, bend_encoded, shot_shape_encoded]
+            """
+            # Extract components
+            dist_diff = abs(x[0] - y[0])  # Distance difference
+            lie_diff = 0 if x[1] == y[1] else 10.0  # Lie mismatch gets heavy penalty
+            bend_diff = abs(x[2] - y[2])  # Bend difference
+            shot_shape_diff = abs(x[3] - y[3])  # Shot shape difference
+            
+            # Weighted distance: lie is most important, then distance
+            # Normalize distance by typical range (assume max 300 yards)
+            normalized_dist = (dist_diff / 300.0) * 5.0
+            normalized_bend = bend_diff * 1.0
+            normalized_shot_shape = shot_shape_diff * 1.0
+            
+            # Combine: lie mismatch is heavily penalized, distance is important
+            total_distance = lie_diff + normalized_dist + normalized_bend + normalized_shot_shape
+            return total_distance
+        
         # Use PCA to reduce dimensions to 2D for visualization
         # Combine training and query data for PCA
         X_combined = np.vstack([X_train, X_query])
@@ -569,7 +633,7 @@ def recommendation_visualization_view(request):
         
         # Find k nearest neighbors for visualization
         k = max(3, min(10, int(np.sqrt(len(X_train)))))
-        knn = KNeighborsClassifier(n_neighbors=k, weights='distance')
+        knn = KNeighborsClassifier(n_neighbors=k, weights='distance', metric=weighted_distance)
         knn.fit(X_train, clubs_list)
         
         distances, indices = knn.kneighbors(X_query, n_neighbors=min(k, len(X_train)))

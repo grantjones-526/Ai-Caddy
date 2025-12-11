@@ -48,7 +48,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const submitBtn = document.getElementById('submit-btn');
     const form = document.getElementById('import-form');
     
-    // Click to browse
+
     fileUploadArea.addEventListener('click', function() {
         fileInput.click();
     });
@@ -121,7 +121,7 @@ document.addEventListener('DOMContentLoaded', function() {
     function resetFileDisplay() {
         fileName.style.display = 'none';
         fileSize.style.display = 'none';
-        fileUploadText.textContent = '📁 Drag and drop your file here or click to browse';
+        fileUploadText.textContent = 'Drag and drop your file here or click to browse';
         fileUploadText.style.color = '#666';
         submitBtn.disabled = true;
     }

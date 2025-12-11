@@ -23,7 +23,7 @@
     
     {% if duplicate_rounds %}
     <div style="padding: 1rem; background: #fff3cd; border-left: 4px solid #ffc107; border-radius: 4px; margin-bottom: 1.5rem;">
-        <strong>⚠️ Duplicate Rounds Detected:</strong>
+        <strong>Duplicate Rounds Detected:</strong>
         <ul style="margin: 0.5rem 0 0 0; padding-left: 1.5rem;">
             {% for dup in duplicate_rounds %}
             <li>{{ dup.course }} on {{ dup.date }}</li>
@@ -37,7 +37,7 @@
     
     {% if parsed_data.errors %}
     <div style="padding: 1rem; background: #f8d7da; border-left: 4px solid #dc3545; border-radius: 4px; margin-bottom: 1.5rem;">
-        <strong>❌ Errors:</strong>
+        <strong>Errors:</strong>
         <ul style="margin: 0.5rem 0 0 0; padding-left: 1.5rem; font-size: 0.9em;">
             {% for error in parsed_data.errors %}
             <li>{{ error }}</li>
@@ -48,7 +48,7 @@
     
     {% if parsed_data.warnings %}
     <div style="padding: 1rem; background: #fff3cd; border-left: 4px solid #ffc107; border-radius: 4px; margin-bottom: 1.5rem;">
-        <strong>⚠️ Warnings:</strong>
+        <strong>Warnings:</strong>
         <ul style="margin: 0.5rem 0 0 0; padding-left: 1.5rem; font-size: 0.9em;">
             {% for warning in parsed_data.warnings|slice:":10" %}
             <li>{{ warning }}</li>

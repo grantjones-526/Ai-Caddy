@@ -85,18 +85,6 @@ class LaunchMonitorParser:
                 return 'Fade'  # Controlled right curve
     
     def parse(self, file_content: str, file_extension: str, device_type: Optional[str] = None) -> Dict:
-        """
-        Main entry point for parsing. Auto-detects format and device type.
-        
-        Returns normalized data structure:
-        {
-            'rounds': [...],
-            'sourceDevice': str,
-            'importedAt': ISO8601,
-            'errors': [...],
-            'warnings': [...]
-        }
-        """
         self.errors = []
         self.warnings = []
         

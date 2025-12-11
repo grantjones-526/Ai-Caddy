@@ -1,7 +1,3 @@
-"""
-Main URL configuration for the aicaddy project.
-This file includes the URLs from the dashboard application.
-"""
 from django.contrib import admin
 from django.urls import path, include
 from django.conf import settings

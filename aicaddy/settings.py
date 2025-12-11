@@ -17,7 +17,7 @@ if DEBUG:
         '0.0.0.0',
     ]
     
-    # Try to auto-detect local IP
+    # Try to auto-detect local IP  - This is used to allow local network access to the development server(to access the server from other devices on the local network)
     import socket
     try:
         # Connect to a remote address to determine local IP
@@ -105,7 +105,7 @@ AUTH_PASSWORD_VALIDATORS = [
     {
         'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator',
         'OPTIONS': {
-            'min_length': 5,
+            'min_length': 8,
         }
     },
     {
@@ -133,6 +133,7 @@ STATICFILES_DIRS = [
     BASE_DIR / 'static',
 ]
 
+# WhiteNoise is a Django middleware that serves static files in production - Used for render deployment
 # WhiteNoise configuration for serving static files in production
 STATICFILES_STORAGE = 'django.contrib.staticfiles.storage.StaticFilesStorage'
 

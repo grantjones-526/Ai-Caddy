@@ -63,11 +63,9 @@
             Clear All Data
         </a>
     </div>
-    <!-- End of new section -->
 
     <ul>
         {% for round in rounds %}
-            <!-- Added the |date filter for cleaner formatting -->
             <li><a href="{% url 'round_detail' round.id %}">{{ round.course_name }} - {{ round.date|date:"m/d/Y" }}</a></li>
         {% empty %}
             <li>You haven't recorded any rounds yet.</li>
