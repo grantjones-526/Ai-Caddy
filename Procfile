@@ -1,2 +1,2 @@
-web: gunicorn aicaddy.wsgi:application
+web: python -m gunicorn aicaddy.wsgi:application
 
