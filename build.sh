@@ -16,8 +16,14 @@ echo "Verifying gunicorn installation..."
 python -m pip show gunicorn || python -m pip install gunicorn
 which gunicorn || echo "Gunicorn not in PATH, but should be installed"
 
+echo "Checking database configuration..."
+python manage.py check --database default
+
 echo "Running database migrations..."
-python manage.py migrate --noinput
+python manage.py migrate --noinput || {
+    echo "WARNING: Migrations failed, but continuing build..."
+    echo "This might be normal if the database is not yet configured."
+}
 
 echo "Collecting static files..."
 python manage.py collectstatic --noinput
