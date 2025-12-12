@@ -12,6 +12,7 @@ from .parsers import LaunchMonitorParser
 import os
 import csv
 import json
+import re
 import numpy as np
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.preprocessing import LabelEncoder
@@ -49,6 +50,72 @@ def logout_view(request):
     return redirect('login')
 
 # --- Main Application Views ---
+def get_club_sort_order(club_name):
+    """
+    Returns a numeric sort order for golf clubs from Driver to Gap Wedge.
+    Lower numbers appear first (Driver = 1, Gap Wedge = highest).
+    """
+    name_lower = club_name.lower()
+    
+    # Driver
+    if 'driver' in name_lower:
+        return 1
+    
+    # Woods
+    if 'wood' in name_lower:
+        if '3' in name_lower or 'three' in name_lower:
+            return 2
+        elif '5' in name_lower or 'five' in name_lower:
+            return 3
+        elif '7' in name_lower or 'seven' in name_lower:
+            return 4
+        else:
+            return 5  # Other woods
+    
+    # Hybrids
+    if 'hybrid' in name_lower:
+        # Extract number if present
+        numbers = re.findall(r'\d+', club_name)
+        if numbers:
+            num = int(numbers[0])
+            return 10 + (10 - num)  # Higher number = lower sort order
+        return 20
+    
+    # Irons
+    if 'iron' in name_lower:
+        numbers = re.findall(r'\d+', club_name)
+        if numbers:
+            num = int(numbers[0])
+            # 4 Iron = 10, 5 Iron = 11, ..., 9 Iron = 15
+            return 10 + (num - 4) if 4 <= num <= 9 else 20 + num
+        return 30
+    
+    # Wedges
+    if 'wedge' in name_lower or 'degree' in name_lower:
+        if 'pitching' in name_lower or 'pw' in name_lower:
+            return 16
+        elif 'gap' in name_lower or '52' in name_lower:
+            return 17
+        elif 'sand' in name_lower or '56' in name_lower:
+            return 18
+        elif 'lob' in name_lower or '60' in name_lower:
+            return 19
+        else:
+            # Other wedges - try to extract degree
+            numbers = re.findall(r'\d+', club_name)
+            if numbers:
+                degree = int(numbers[0])
+                if degree <= 52:
+                    return 17
+                elif degree <= 56:
+                    return 18
+                else:
+                    return 19
+            return 20
+    
+    # Default: put unknown clubs at the end
+    return 100
+
 @login_required
 def dashboard_view(request):
     """Displays user's clubs and their average performance."""
@@ -56,9 +123,14 @@ def dashboard_view(request):
         avg_fairway=Avg('shot__distance', filter=Q(shot__lie__in=['Fairway', 'Tee Box'])),
         avg_rough=Avg('shot__distance', filter=Q(shot__lie='Rough')),
         std_dev=StdDev('shot__distance')
-    ).prefetch_related('shot_set').order_by('-avg_fairway', '-avg_rough')
+    ).prefetch_related('shot_set')
+    
+    # Sort clubs in standard golf order (Driver to Gap Wedge)
+    clubs_list = list(clubs)
+    clubs_list.sort(key=lambda club: (get_club_sort_order(club.name), club.name))
+    
     rounds = GolfRound.objects.filter(user=request.user).order_by('-date')
-    return render(request, 'dashboard/dashboard.html', {'clubs': clubs, 'rounds': rounds})
+    return render(request, 'dashboard/dashboard.html', {'clubs': clubs_list, 'rounds': rounds})
 
 @login_required
 def add_round_view(request):
@@ -192,7 +264,6 @@ def recommendation_view(request):
             
             X_query = np.array([[distance_to_hole, lie_encoded_query, bend_encoded_query, shot_shape_encoded_query]])
             
-            # Create weighted distance metric function
             # Weights: distance=5.0, lie=10.0 (most important), bend=1.0, shot_shape=1.0
             def weighted_distance(x, y):
                 """
